@@ -1,27 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* Configurações compatíveis e recomendadas */
   reactStrictMode: true,
-  swcMinify: true,
 
-  // Permite uso seguro em Cloudflare Pages
+  // Deixe vazio no Next 15 (removemos optimizeCss para não exigir "critters")
   experimental: {
-    optimizeCss: true,
-    turbo: {
-      rules: {},
-    },
+    turbo: { rules: {} },
   },
 
-  // Ignora warnings de eslint no deploy (opcional)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Evita que ESLint interrompa o build no CF Pages
+  eslint: { ignoreDuringBuilds: true },
 
-  // Ajusta checagem de tipos durante o build
-  typescript: {
-    ignoreBuildErrors: false,
-  },
+  // Mantenha a checagem de tipos (pode trocar para true se quiser forçar deploy)
+  typescript: { ignoreBuildErrors: false },
 };
 
 export default nextConfig;

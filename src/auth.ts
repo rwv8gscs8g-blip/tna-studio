@@ -5,44 +5,29 @@ import { compare } from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { headers } from "next/headers";
 
-// --- singleton simples do Prisma (evita múltiplas conexões em dev) ---
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-// --- tipagem do rate limit no escopo global (evita erro TS) ---
+/* Prisma singleton (safe em dev) */
 declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClient | undefined;
   // eslint-disable-next-line no-var
   var rateLimit: Map<string, number[]> | undefined;
 }
+const prisma = global.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== "production") global.prisma = prisma;
 
-/* ------------------------- CONFIGURAÇÃO PRINCIPAL ------------------------- */
 export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
-
-  // Estratégia de sessão via JWT (mais segura e performática)
-  session: { strategy: "jwt", maxAge: 60 * 60 * 8 }, // 8h
-
-  // Secret seguro para geração de tokens
+  session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
   secret: process.env.NEXTAUTH_SECRET,
-
-  // Cookie seguro e com política restrita
   cookies: {
     sessionToken: {
       name:
         process.env.NODE_ENV === "production"
           ? "__Secure-next-auth.session-token"
           : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-      },
+      options: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" },
     },
   },
-
-  /* ---------------------- PROVEDOR DE LOGIN VIA SENHA --------------------- */
   providers: [
     Credentials({
       name: "Login com credenciais",
@@ -50,17 +35,18 @@ export const authOptions: NextAuthConfig = {
         email: { label: "Email", type: "email" },
         password: { label: "Senha", type: "password" },
       },
-      // NOTE: authorize é async; headers() agora também precisa de await no Next 15
       authorize: async (credentials) => {
-        if (!credentials?.email || !credentials?.password) return null;
+        const email =
+          typeof credentials?.email === "string"
+            ? credentials.email.toLowerCase().trim()
+            : "";
+        const password =
+          typeof credentials?.password === "string" ? credentials.password : "";
+        if (!email || !password) return null;
 
-        // ---- Rate Limit em memória (simples e leve para DEV) ----
-        const h = await headers(); // <- CORRIGIDO: headers() é assíncrono
-        const ip =
-          h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-          h.get("cf-connecting-ip") ||
-          "127.0.0.1";
-
+        // ---- Rate limit simples (usa await headers()) ----
+        const hdrs = (await (headers() as unknown as Promise<Readonly<Headers>>)) as Headers;
+        const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
         globalThis.rateLimit = globalThis.rateLimit || new Map();
         const now = Date.now();
         const attempts = globalThis.rateLimit.get(ip) || [];
@@ -71,47 +57,30 @@ export const authOptions: NextAuthConfig = {
         }
         globalThis.rateLimit.set(ip, [...recent, now]);
 
-        // ---- Busca o usuário ----
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
-        });
-        if (!user || !user.passwordHash) return null;
+        // ---- Busca usuário e confere senha ----
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !(user as any).passwordHash) return null;
 
-        // ---- Confere a senha ----
-        const ok = await compare(credentials.password, user.passwordHash);
+        const ok = await compare(password, (user as any).passwordHash as string);
         if (!ok) return null;
 
-        // ---- Retorna o objeto mínimo de user ----
-        return {
-          id: user.id,
-          name: user.name ?? "",
-          email: user.email,
-          image: user.image ?? undefined,
-          role: (user as unknown as { role?: string }).role ?? "model",
-        } as any;
+        const role = (user as any).role ?? "model";
+        return { id: user.id, name: user.name ?? "", email: user.email, image: user.image ?? undefined, role } as any;
       },
     }),
   ],
-
-  /* ----------------------------- CALLBACKS JWT ---------------------------- */
   callbacks: {
     async jwt({ token, user }) {
       if (user) token.role = (user as any).role ?? "model";
-      return token;
+      return token as any;
     },
     async session({ session, token }) {
       if (token) (session.user as any).role = (token as any).role ?? "model";
       return session;
     },
   },
-
-  /* -------------------------- PÁGINAS PERSONALIZADAS ---------------------- */
-  pages: {
-    signIn: "/signin",
-  },
-
-  /* -------------------------- SEGURANÇA ADICIONAL ------------------------- */
-  trustHost: false, // mantenha false enquanto estamos só em HTTPS/Pages
+  pages: { signIn: "/signin" },
+  trustHost: false,
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);
