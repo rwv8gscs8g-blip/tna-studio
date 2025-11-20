@@ -58,7 +58,9 @@ export async function canAccessPhoto(
     }
 
     // Verifica roles permitidos
-    if (rights.allowedRoles.includes(userRole)) {
+    // Converte userRole para Role enum se for string
+    const userRoleEnum = typeof userRole === "string" ? (userRole as Role) : userRole;
+    if (rights.allowedRoles.includes(userRoleEnum)) {
       return { allowed: true };
     }
 

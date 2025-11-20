@@ -79,7 +79,7 @@ export const authOptions: NextAuthConfig = {
         if (!ok) return null;
 
         const role = (user as any).role ?? Role.MODEL;
-        return { id: user.id, name: user.name ?? "", email: user.email, image: user.image ?? undefined, role } as any;
+        return { id: user.id, name: user.name ?? "", email: user.email, role } as any;
       },
     }),
   ],
@@ -92,7 +92,8 @@ export const authOptions: NextAuthConfig = {
         const now = Math.floor(Date.now() / 1000);
         token.iat = now; // Timestamp de criação
         token.exp = now + 300; // Expira em 5 minutos (300 segundos)
-        console.log(`[Auth] Novo token criado para userId=${user.id.substring(0, 8)}... (expira em ${token.exp})`);
+        const userId = user.id || (user as any).id || "unknown";
+        console.log(`[Auth] Novo token criado para userId=${userId.substring(0, 8)}... (expira em ${token.exp})`);
       } else if (token) {
         // Token existente - valida expiração e build
         const now = Math.floor(Date.now() / 1000);
@@ -125,7 +126,7 @@ export const authOptions: NextAuthConfig = {
         // Define expires baseado em token.exp (servidor controla)
         // Converte de segundos (Unix timestamp) para Date ISO string
         if (token.exp) {
-          session.expires = new Date(token.exp * 1000).toISOString();
+          (session as any).expires = new Date(token.exp * 1000).toISOString();
         }
       }
       return session;

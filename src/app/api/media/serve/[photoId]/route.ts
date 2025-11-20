@@ -19,6 +19,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ photoId: string }> }
 ) {
+  // Extrai photoId antes do try para estar disponível no catch
+  const { photoId } = await params;
+  
   try {
     const session = await auth();
     if (!session?.user) {
@@ -29,8 +32,6 @@ export async function GET(
     if (!userId) {
       return NextResponse.json({ error: "ID do usuário não encontrado na sessão" }, { status: 401 });
     }
-
-    const { photoId } = await params;
     const userRole = (session.user as any).role as Role;
 
     // Valida permissões
