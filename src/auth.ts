@@ -2,8 +2,9 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 import { headers } from "next/headers";
+import { BUILD_TIMESTAMP, BUILD_VERSION, isTokenFromOldBuild } from "@/lib/build-version";
 
 /* Prisma singleton (safe em dev) */
 declare global {
@@ -17,7 +18,7 @@ if (process.env.NODE_ENV !== "production") global.prisma = prisma;
 
 export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
+  session: { strategy: "jwt", maxAge: 300 }, // 5 minutos (300 segundos) - explícito
   secret: process.env.NEXTAUTH_SECRET,
   cookies: {
     sessionToken: {
@@ -25,7 +26,13 @@ export const authOptions: NextAuthConfig = {
         process.env.NODE_ENV === "production"
           ? "__Secure-next-auth.session-token"
           : "next-auth.session-token",
-      options: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" },
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 300, // 5 minutos - explícito no cookie
+      },
     },
   },
   providers: [
@@ -44,9 +51,16 @@ export const authOptions: NextAuthConfig = {
           typeof credentials?.password === "string" ? credentials.password : "";
         if (!email || !password) return null;
 
-        // ---- Rate limit simples (usa await headers()) ----
-        const hdrs = (await (headers() as unknown as Promise<Readonly<Headers>>)) as Headers;
-        const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
+        // ---- Rate limit simples ----
+        let ip = "127.0.0.1";
+        try {
+          const hdrs = await headers();
+          ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? 
+               hdrs.get("cf-connecting-ip") ?? 
+               "127.0.0.1";
+        } catch {
+          // headers() pode não estar disponível em alguns ambientes (ex.: scripts)
+        }
         globalThis.rateLimit = globalThis.rateLimit || new Map();
         const now = Date.now();
         const attempts = globalThis.rateLimit.get(ip) || [];
@@ -64,23 +78,61 @@ export const authOptions: NextAuthConfig = {
         const ok = await compare(password, (user as any).passwordHash as string);
         if (!ok) return null;
 
-        const role = (user as any).role ?? "model";
+        const role = (user as any).role ?? Role.MODEL;
         return { id: user.id, name: user.name ?? "", email: user.email, image: user.image ?? undefined, role } as any;
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.role = (user as any).role ?? "model";
+    async jwt({ token, user, trigger }) {
+      if (user) {
+        // Novo login - cria token
+        token.id = user.id;
+        token.role = (user as any).role ?? Role.MODEL;
+        const now = Math.floor(Date.now() / 1000);
+        token.iat = now; // Timestamp de criação
+        token.exp = now + 300; // Expira em 5 minutos (300 segundos)
+        console.log(`[Auth] Novo token criado para userId=${user.id.substring(0, 8)}... (expira em ${token.exp})`);
+      } else if (token) {
+        // Token existente - valida expiração e build
+        const now = Math.floor(Date.now() / 1000);
+        
+        // 1. Valida expiração PRIMEIRO (mais crítico)
+        if (token.exp && token.exp < now) {
+          console.warn(`[Auth] Token REJEITADO - expirado (exp: ${token.exp}, now: ${now}, expirado há ${now - token.exp}s)`);
+          return null as any;
+        }
+        
+        // 2. Verifica se token é de build antigo (criado antes do restart)
+        if (isTokenFromOldBuild(token.iat)) {
+          console.warn(`[Auth] Token REJEITADO - build antigo (iat: ${token.iat}, build atual iniciado em: ${new Date(BUILD_TIMESTAMP).toISOString()})`);
+          return null as any;
+        }
+      }
       return token as any;
     },
     async session({ session, token }) {
-      if (token) (session.user as any).role = (token as any).role ?? "model";
+      // Se token é null (expirado ou de build antigo), retorna sessão vazia
+      if (!token) {
+        console.warn(`[Auth] Sessão inválida - token null ou expirado`);
+        return { ...session, user: null } as any;
+      }
+      
+      if (token) {
+        (session.user as any).id = (token as any).id;
+        (session.user as any).role = (token as any).role ?? Role.MODEL;
+        
+        // Define expires baseado em token.exp (servidor controla)
+        // Converte de segundos (Unix timestamp) para Date ISO string
+        if (token.exp) {
+          session.expires = new Date(token.exp * 1000).toISOString();
+        }
+      }
       return session;
     },
   },
   pages: { signIn: "/signin" },
-  trustHost: false,
+  trustHost: true,
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);

@@ -1,10 +1,17 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite" // DEV. Em prod: "postgresql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -14,148 +21,87 @@ enum Role {
 }
 
 model User {
-  id                String   @id @default(cuid())
-  name              String?
-  email             String   @unique // em prod (Postgres): usar citext para case-insensitive
-  passwordHash      String
-  passwordUpdatedAt DateTime @default(now())
-  role              Role     @default(MODEL)
-  image             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  accounts  Account[]
-  sessions  Session[]
-  galleries Gallery[]       @relation("OwnerGalleries")
-  accesses  GalleryAccess[]
-  links     SignedLink[]
-  auditLogs AuditLog[]
-
-  @@index([email])
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
-}
-
-model Session {
   id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(MODEL)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relações
+  galleries    Gallery[]
+  ownedRights  ImageRights[] @relation("PhotoOwner")
+  galleryAccess GalleryAccess[]
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-// Dono da galeria = userId
 model Gallery {
   id          String   @id @default(cuid())
   title       String
   description String?
-  coverImage  String? // pode ser uma key do R2
   userId      String
   isPrivate   Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  user   User            @relation("OwnerGalleries", fields: [userId], references: [id], onDelete: Cascade)
-  photos Photo[]
-  access GalleryAccess[]
-  links  SignedLink[]
-
+  
+  // Relações
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos      Photo[]
+  access      GalleryAccess[]
+  
   @@index([userId])
-  @@index([createdAt])
 }
 
-// Foto aponta para uma key no R2 (não URL)
 model Photo {
-  id         String   @id @default(cuid())
-  key        String // ex: "galeria/abc123/IMG_0001.jpg"
-  mimeType   String?
-  bytes      Int?
-  checksum   String? // ex: sha256 para integridade (opcional)
-  title      String?
-  galleryId  String
-  uploadedAt DateTime @default(now())
-
-  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-
+  id          String   @id @default(cuid())
+  key         String   @unique // Path no storage (ex: "cpf-12345678901/session-001/photo-001.jpg")
+  title       String?
+  mimeType    String
+  bytes       Int      // Tamanho em bytes
+  galleryId   String
+  isSensitive Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relações
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  rights      ImageRights?
+  
   @@index([galleryId])
-  @@index([uploadedAt])
+  @@index([key])
 }
 
-// ACL por usuário (quem pode ver/baixar a galeria)
+model ImageRights {
+  id            String    @id @default(cuid())
+  photoId       String    @unique
+  ownerId       String    // User que possui os direitos
+  hasUsageRights Boolean  @default(false)
+  allowedRoles  Role[]    // Roles permitidos (ADMIN sempre tem acesso)
+  allowedUsers  String[]  // IDs de usuários específicos permitidos
+  expiresAt     DateTime? // Expiração opcional
+  metadata      String?   // JSON com termos, restrições, etc.
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relações
+  photo         Photo     @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  owner         User      @relation("PhotoOwner", fields: [ownerId], references: [id])
+  
+  @@index([ownerId])
+}
+
 model GalleryAccess {
-  id          String   @id @default(cuid())
-  galleryId   String
-  granteeId   String
-  canDownload Boolean  @default(false)
-  createdAt   DateTime @default(now())
-
-  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-  grantee User    @relation(fields: [granteeId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  galleryId String
+  granteeId String  // User que recebe acesso
+  canDownload Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  gallery   Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  grantee   User     @relation(fields: [granteeId], references: [id], onDelete: Cascade)
+  
   @@unique([galleryId, granteeId])
   @@index([granteeId])
-}
-
-// Link efêmero (token aleatório), não contém a URL real.
-// O Worker valida token -> consulta tabela -> verifica expiração/uso -> assina a URL R2 e responde.
-model SignedLink {
-  id        String   @id @default(cuid())
-  token     String   @unique // ex: base58/base64url rand (não previsível)
-  galleryId String
-  createdBy String // dono que gerou
-  expiresAt DateTime
-  maxUses   Int?
-  usedCount Int      @default(0)
-  createdAt DateTime @default(now())
-
-  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-  owner   User    @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-
-  @@index([galleryId])
-  @@index([expiresAt])
-}
-
-// Log mínimo de auditoria de ações sensíveis
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String // ex: "LOGIN_SUCCESS", "LINK_CREATED", "DOWNLOAD"
-  targetId  String?
-  ip        String?
-  userAgent String?
-  createdAt DateTime @default(now())
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([createdAt])
 }

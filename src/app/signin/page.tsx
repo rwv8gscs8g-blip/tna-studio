@@ -1,15 +1,47 @@
 // src/app/signin/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-export default function SignInPage() {
+function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+
+  // Limpa cookies antigos se solicitado
+  useEffect(() => {
+    const clearCookies = searchParams.get("clearCookies");
+    if (clearCookies === "1") {
+      // Limpa todos os cookies de sessão no cliente
+      const cookieNames = [
+        "next-auth.session-token",
+        "__Secure-next-auth.session-token",
+        "next-auth.csrf-token",
+        "__Secure-next-auth.csrf-token",
+        "next-auth.callback-url",
+        "__Secure-next-auth.callback-url",
+        "sessionToken",
+      ];
+
+      cookieNames.forEach((name) => {
+        // Remove cookie do domínio atual
+        document.cookie = `${name}=; path=/; max-age=0;`;
+        document.cookie = `${name}=; path=/; domain=${window.location.hostname}; max-age=0;`;
+        document.cookie = `${name}=; path=/; domain=.${window.location.hostname}; max-age=0;`;
+      });
+
+      // Limpa localStorage e sessionStorage também
+      localStorage.clear();
+      sessionStorage.clear();
+
+      console.log("[SignIn] Cookies antigos limpos devido a build novo");
+    }
+  }, [searchParams]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,5 +130,17 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100dvh", display: "grid", placeItems: "center" }}>
+        <div>Carregando...</div>
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
   );
 }

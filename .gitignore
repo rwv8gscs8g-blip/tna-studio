@@ -41,3 +41,17 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+/generated/prisma
+
+# Internal docs (test credentials/pages)
+/internal/
+
+# Arquivo de versão de cache por orientação do GPT 5.1
+tna-studio-1.0.0
+
+# Arquivos de cache gerados pelo Cursor / ChatGPT Tools
+tna-studio-*.*
+*.cursor
+.cursor/
+cursor-cache/ 
