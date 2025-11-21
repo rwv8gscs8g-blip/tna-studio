@@ -48,16 +48,39 @@ function SignInForm() {
     setLoading(true);
     setError(null);
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: true,      // redireciona após sucesso
-      callbackUrl: "/",    // pode trocar depois
-    });
+    try {
+      // Usa redirect: false para capturar erros antes de redirecionar
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,    // Não redireciona automaticamente para capturar erros
+        callbackUrl: "/",
+      });
 
-    // quando redirect=true, o NextAuth redireciona e não retorna erro aqui
-    // se preferir tratar sem redirect, defina redirect:false e cheque res?.error
-    setLoading(false);
+      if (res?.error) {
+        // Erro de autenticação
+        console.error("[SignIn] Erro no login:", res.error);
+        setError("Email ou senha incorretos. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+
+      if (res?.ok) {
+        // Login bem-sucedido - redireciona manualmente
+        console.log("[SignIn] Login bem-sucedido, redirecionando...");
+        window.location.href = res.url || "/";
+        return;
+      }
+
+      // Se não retornou ok nem error, algo estranho aconteceu
+      console.warn("[SignIn] Resposta inesperada do signIn:", res);
+      setError("Erro inesperado. Tente novamente.");
+      setLoading(false);
+    } catch (err: any) {
+      console.error("[SignIn] Erro ao fazer login:", err);
+      setError(err.message || "Erro ao fazer login. Tente novamente.");
+      setLoading(false);
+    }
   }
 
   return (

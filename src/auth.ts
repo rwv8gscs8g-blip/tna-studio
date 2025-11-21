@@ -32,6 +32,20 @@ export const authOptions: NextAuthConfig = {
         secure: process.env.NODE_ENV === "production",
         path: "/",
         maxAge: 300, // 5 minutos - explícito no cookie
+        // Domain não especificado para funcionar em todos os subdomínios
+        // Safari requer HTTPS para cookies __Secure-*
+      },
+    },
+    csrfToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.csrf-token"
+          : "next-auth.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
       },
     },
   },
