@@ -99,18 +99,18 @@ export const authOptions: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user, trigger }) {
+      const now = Math.floor(Date.now() / 1000);
+      
       if (user) {
         // Novo login - cria token
         token.id = user.id;
         token.role = (user as any).role ?? Role.MODEL;
-        const now = Math.floor(Date.now() / 1000);
         token.iat = now; // Timestamp de criação
         token.exp = now + 300; // Expira em 5 minutos (300 segundos)
         const userId = user.id || (user as any).id || "unknown";
         console.log(`[Auth] Novo token criado para userId=${userId.substring(0, 8)}... (expira em ${token.exp})`);
       } else if (token) {
         // Token existente - valida expiração e build
-        const now = Math.floor(Date.now() / 1000);
         
         // 1. Valida expiração PRIMEIRO (mais crítico)
         if (token.exp && token.exp < now) {
@@ -122,6 +122,14 @@ export const authOptions: NextAuthConfig = {
         if (isTokenFromOldBuild(token.iat)) {
           console.warn(`[Auth] Token REJEITADO - build antigo (iat: ${token.iat}, build atual iniciado em: ${new Date(BUILD_TIMESTAMP).toISOString()})`);
           return null as any;
+        }
+        
+        // 3. Se trigger é "update" e token não está expirado, estende em 5 minutos
+        if (trigger === "update" && token.exp && token.exp > now) {
+          const newExp = now + 300; // Estende em 5 minutos
+          token.exp = newExp;
+          token.iat = now; // Atualiza iat também
+          console.log(`[Auth] Token estendido para userId=${(token.id as string)?.substring(0, 8)}... (novo exp: ${newExp})`);
         }
       }
       return token as any;

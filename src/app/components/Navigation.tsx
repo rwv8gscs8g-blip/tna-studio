@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import SignOutButton from "./SignOutButton";
+import SessionTimer from "./SessionTimer";
 
 export default function Navigation() {
   const { data: session } = useSession();
@@ -136,6 +137,7 @@ export default function Navigation() {
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <SessionTimer />
         <div style={{ fontSize: 14, color: "#6b7280" }}>
           {session.user?.email}
         </div>

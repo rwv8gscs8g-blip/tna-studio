@@ -38,12 +38,22 @@ export async function GET(req: NextRequest) {
           user: {
             select: { id: true, name: true, email: true },
           },
-          _count: {
-            select: { photos: true },
-          },
         },
         orderBy: { createdAt: "desc" },
       });
+      
+      // Adiciona _count para cada galeria
+      galleries = await Promise.all(
+        galleries.map(async (gallery) => {
+          const photoCount = await prisma.photo.count({
+            where: { galleryId: gallery.id },
+          });
+          return {
+            ...gallery,
+            _count: { photos: photoCount },
+          };
+        })
+      );
     } else {
       // Usuário vê suas próprias galerias + galerias com acesso concedido
       const owned = await prisma.gallery.findMany({

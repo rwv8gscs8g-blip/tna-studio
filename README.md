@@ -279,6 +279,29 @@ npm run build
 vercel --prod
 ```
 
+## ✨ Funcionalidades Atuais
+
+### Autenticação e Sessão
+- ✅ Login com NextAuth Credentials
+- ✅ Sessão JWT com expiração de 5 minutos
+- ✅ SessionTimer visível em todas as páginas
+- ✅ Sinalização visual quando falta < 1 minuto
+- ✅ Botão para estender sessão em 5 minutos
+- ✅ Aviso e redirecionamento quando expira
+
+### Galerias e Mídia
+- ✅ Criação de galerias
+- ✅ Upload de fotos (até 10 MB)
+- ✅ Validação de tipos MIME
+- ✅ Rate limiting (10 uploads/minuto)
+- ✅ Thumbnails com URLs assinadas (R2)
+- ✅ Admin vê todas as galerias
+
+### Administração
+- ✅ Painel de usuários (Admin)
+- ✅ Relatórios básicos (Admin)
+- ✅ Criação manual de usuários
+
 ## 📝 Extensões Futuras
 
 O projeto está preparado para receber:
