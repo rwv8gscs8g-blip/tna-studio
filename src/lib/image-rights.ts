@@ -30,10 +30,10 @@ export async function canAccessPhoto(
   const photo = await prisma.photo.findUnique({
     where: { id: photoId },
     include: {
-      rights: true,
-      gallery: {
+      ImageRights: true,
+      Gallery: {
         include: {
-          user: true,
+          User: true,
         },
       },
     },
@@ -44,13 +44,13 @@ export async function canAccessPhoto(
   }
 
   // Se o usuário é dono da galeria, tem acesso
-  if (photo.gallery.userId === userId) {
+  if (photo.Gallery.userId === userId) {
     return { allowed: true };
   }
 
   // Verifica direitos específicos da foto
-  if (photo.rights) {
-    const rights = photo.rights;
+  if (photo.ImageRights) {
+    const rights = photo.ImageRights;
 
     // Verifica expiração
     if (rights.expiresAt && rights.expiresAt < new Date()) {
@@ -103,8 +103,8 @@ export async function canAccessGallery(
   const gallery = await prisma.gallery.findUnique({
     where: { id: galleryId },
     include: {
-      user: true,
-      access: true,
+      User: true,
+      GalleryAccess: true,
     },
   });
 
@@ -119,7 +119,7 @@ export async function canAccessGallery(
 
   // Se a galeria é privada, verifica acesso explícito
   if (gallery.isPrivate) {
-    const hasAccess = gallery.access.some((a) => a.granteeId === userId);
+    const hasAccess = gallery.GalleryAccess.some((a) => a.granteeId === userId);
     if (!hasAccess) {
       return { allowed: false, reason: "Galeria privada - acesso não concedido" };
     }

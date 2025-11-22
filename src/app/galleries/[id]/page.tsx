@@ -192,7 +192,7 @@ export default function GalleryDetailPage() {
         )}
         <div style={{ fontSize: 14, color: "#6b7280" }}>
           {gallery.isPrivate && "🔒 "}
-          {gallery.photos.length} foto{gallery.photos.length !== 1 ? "s" : ""}
+          {(gallery.photos ?? []).length} foto{(gallery.photos ?? []).length !== 1 ? "s" : ""}
         </div>
       </div>
 
@@ -225,9 +225,9 @@ export default function GalleryDetailPage() {
         )}
       </div>
 
-      {gallery.photos.length === 0 ? (
+      {(!gallery.photos || gallery.photos.length === 0) ? (
         <div style={{ textAlign: "center", padding: "4rem", color: "#6b7280" }}>
-          <p>Nenhuma foto nesta galeria ainda.</p>
+          <p>Nenhuma foto adicionada ainda a este ensaio.</p>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "1rem" }}>

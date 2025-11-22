@@ -10,7 +10,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Rotas públicas (não requerem autenticação)
-const publicRoutes = ["/signin", "/api/auth"];
+const publicRoutes = ["/signin", "/modelo/signup", "/api/auth"];
+
+// Rotas de teste de segurança (requerem autenticação, mas são acessíveis via middleware)
+// A validação de role será feita na página/API
+const securityTestRoutes = ["/security/test-a1", "/security/test-govbr"];
 
 /**
  * Verifica se existe cookie de sessão NextAuth

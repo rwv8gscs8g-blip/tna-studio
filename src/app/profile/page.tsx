@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import SignOutButton from "../components/SignOutButton";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import ProfileForm from "./ProfileForm";
+import ProfileFormComplete from "./ProfileFormComplete";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export default async function ProfilePage() {
             </dl>
           </div>
 
-          <ProfileForm defaultName={user?.name} />
+          <ProfileFormComplete />
 
           <div
             style={{

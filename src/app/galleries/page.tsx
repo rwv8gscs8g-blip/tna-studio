@@ -12,7 +12,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function GalleriesPage() {
-  const session = await auth();
+  let session = null;
+  try {
+    session = await auth();
+  } catch (error: any) {
+    console.error("[GalleriesPage] Erro ao obter sessão:", error);
+    redirect("/signin");
+  }
+  
   if (!session?.user) {
     redirect("/signin");
   }
@@ -24,16 +31,29 @@ export default async function GalleriesPage() {
 
   const userRole = (session.user as any).role as Role;
 
+  // SUPER_ADMIN não tem acesso a galerias
+  if (userRole === Role.SUPER_ADMIN) {
+    redirect("/super-admin/certificates");
+  }
+
   let galleries;
 
   if (userRole === Role.ADMIN) {
     galleries = await prisma.gallery.findMany({
-      include: {
-        user: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        userId: true,
+        isPrivate: true,
+        createdAt: true,
+        updatedAt: true,
+        // Não buscar ownerCpf, ownerPassport, sessionDate se não existirem
+        User: {
           select: { name: true, email: true },
         },
         _count: {
-          select: { photos: true },
+          select: { Photo: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -41,9 +61,17 @@ export default async function GalleriesPage() {
   } else {
     const owned = await prisma.gallery.findMany({
       where: { userId },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        userId: true,
+        isPrivate: true,
+        createdAt: true,
+        updatedAt: true,
+        // Não buscar ownerCpf, ownerPassport, sessionDate se não existirem
         _count: {
-          select: { photos: true },
+          select: { Photo: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -51,14 +79,22 @@ export default async function GalleriesPage() {
 
     const accessed = await prisma.galleryAccess.findMany({
       where: { granteeId: userId },
-      include: {
-        gallery: {
-          include: {
-            user: {
+      select: {
+        Gallery: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            userId: true,
+            isPrivate: true,
+            createdAt: true,
+            updatedAt: true,
+            // Não buscar ownerCpf, ownerPassport, sessionDate se não existirem
+            User: {
               select: { name: true, email: true },
             },
             _count: {
-              select: { photos: true },
+              select: { Photo: true },
             },
           },
         },
@@ -66,15 +102,15 @@ export default async function GalleriesPage() {
     });
 
     galleries = [
-      ...owned.map((g) => ({ ...g, user: null })),
-      ...accessed.map((a) => a.gallery),
+      ...owned.map((g) => ({ ...g, User: null })),
+      ...accessed.map((a) => a.Gallery),
     ];
   }
 
   return (
     <div style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: 32, fontWeight: 700 }}>Galerias</h1>
+        <h1 style={{ fontSize: 32, fontWeight: 700 }}>Ensaios Fotográficos</h1>
         <Link
           href="/galleries/new"
           style={{
@@ -88,14 +124,14 @@ export default async function GalleriesPage() {
             fontWeight: 500,
           }}
         >
-          Nova Galeria
+          Novo Ensaio
         </Link>
       </div>
 
       {galleries.length === 0 ? (
         <div style={{ textAlign: "center", padding: "4rem", color: "#6b7280" }}>
-          <p style={{ fontSize: 18, marginBottom: 8 }}>Nenhuma galeria encontrada</p>
-          <p style={{ fontSize: 14 }}>Crie sua primeira galeria para começar a fazer upload de fotos.</p>
+          <p style={{ fontSize: 18, marginBottom: 8 }}>Nenhum ensaio fotográfico encontrado</p>
+          <p style={{ fontSize: 14 }}>Crie seu primeiro ensaio fotográfico para começar a fazer upload de fotos.</p>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.5rem" }}>
@@ -124,9 +160,9 @@ export default async function GalleriesPage() {
                 </p>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "#6b7280" }}>
-                <span>{gallery._count.photos} foto{gallery._count.photos !== 1 ? "s" : ""}</span>
-                {userRole === Role.ADMIN && "user" in gallery && (
-                  <span>Por: {gallery.user?.name || gallery.user?.email}</span>
+                <span>{gallery._count.Photo} foto{gallery._count.Photo !== 1 ? "s" : ""}</span>
+                {userRole === Role.ADMIN && "User" in gallery && (
+                  <span>Por: {gallery.User?.name || gallery.User?.email}</span>
                 )}
               </div>
               {gallery.isPrivate && (

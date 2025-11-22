@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessGallery } from "@/lib/image-rights";
+import { canWriteOperation, canReadOperation } from "@/lib/write-guard-arquiteto";
 import { Role } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -31,11 +32,20 @@ export async function GET(req: NextRequest) {
 
     let galleries;
 
-    if (userRole === Role.ADMIN) {
+    // ARQUITETO e ADMIN podem ver todas as galerias (leitura)
+    if (userRole === Role.ARQUITETO || userRole === Role.ADMIN || userRole === Role.SUPER_ADMIN) {
       // Admin vê todas as galerias
       galleries = await prisma.gallery.findMany({
-        include: {
-          user: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          userId: true,
+          isPrivate: true,
+          createdAt: true,
+          updatedAt: true,
+          // Não buscar ownerCpf, ownerPassport, sessionDate se não existirem
+          User: {
             select: { id: true, name: true, email: true },
           },
         },
@@ -50,7 +60,7 @@ export async function GET(req: NextRequest) {
           });
           return {
             ...gallery,
-            _count: { photos: photoCount },
+            _count: { Photo: photoCount },
           };
         })
       );
@@ -58,9 +68,17 @@ export async function GET(req: NextRequest) {
       // Usuário vê suas próprias galerias + galerias com acesso concedido
       const owned = await prisma.gallery.findMany({
         where: { userId },
-        include: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          userId: true,
+          isPrivate: true,
+          createdAt: true,
+          updatedAt: true,
+          // Não buscar ownerCpf, ownerPassport, sessionDate se não existirem
           _count: {
-            select: { photos: true },
+            select: { Photo: true },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -69,13 +87,13 @@ export async function GET(req: NextRequest) {
       const accessed = await prisma.galleryAccess.findMany({
         where: { granteeId: userId },
         include: {
-          gallery: {
+          Gallery: {
             include: {
-              user: {
+              User: {
                 select: { id: true, name: true, email: true },
               },
               _count: {
-                select: { photos: true },
+                select: { Photo: true },
               },
             },
           },
@@ -83,8 +101,8 @@ export async function GET(req: NextRequest) {
       });
 
       galleries = [
-        ...owned.map((g) => ({ ...g, user: null })),
-        ...accessed.map((a) => a.gallery),
+        ...owned.map((g) => ({ ...g, User: null })),
+        ...accessed.map((a) => a.Gallery),
       ];
     }
 
@@ -98,7 +116,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Cria galeria
+// POST - Cria galeria (requer Certificado A1 se CERT_A1_ENFORCE_WRITES=true)
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -111,6 +129,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ID do usuário não encontrado na sessão" }, { status: 401 });
     }
 
+    const userRole = (session.user as any).role as Role;
+
+    // Apenas ARQUITETO pode criar galerias
+    // ADMIN e SUPER_ADMIN têm acesso somente leitura
+
     const body = await req.json();
     const { title, description, isPrivate } = body;
 
@@ -118,16 +141,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "title é obrigatório" }, { status: 400 });
     }
 
+    // Obter IP e User-Agent para auditoria
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+               req.headers.get("x-real-ip") ||
+               "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
+    // Validar com guards de escrita (apenas ARQUITETO, com Certificado A1)
+    const operationId = `create_gallery_${Date.now()}`;
+    const guard = await canWriteOperation(
+      userId,
+      userRole,
+      "create_gallery",
+      operationId,
+      { title, description, isPrivate },
+      ip,
+      userAgent
+    );
+
+    if (!guard.allowed) {
+      return NextResponse.json(
+        { 
+          error: guard.reason || "Operação bloqueada pelos guards de segurança",
+          failedLayer: guard.failedLayer,
+          details: guard.details
+        },
+        { status: 403 }
+      );
+    }
+
+    // Se passou pelos guards, criar galeria
     const gallery = await prisma.gallery.create({
       data: {
         title: title.trim(),
         description: description ? description.trim() : null,
         userId,
-        isPrivate: isPrivate !== false, // Default true
+        isPrivate: true, // Sempre privada (obrigatório)
       },
       include: {
         _count: {
-          select: { photos: true },
+          select: { Photo: true },
         },
       },
     });

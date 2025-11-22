@@ -1,48 +1,163 @@
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
+"use client";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-export default async function AdminReportsPage() {
-  const session = await auth();
-  if (!session || (session.user as any)?.role !== "ADMIN") {
-    redirect("/signin");
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  cpf: string | null;
+  birthDate: string | null;
+  createdAt: Date;
+}
+
+interface ReportsData {
+  users: User[];
+  totalUsers: number;
+  arquitetoCount: number;
+  adminCount: number;
+  modeloCount: number;
+  clienteCount: number;
+  superAdminCount: number;
+}
+
+export default function AdminReportsPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({
+    totalUsers: 0,
+    arquitetoCount: 0,
+    adminCount: 0,
+    modeloCount: 0,
+    clienteCount: 0,
+    superAdminCount: 0,
+  });
+
+  // Verificar autenticação
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/signin");
+      return;
+    }
+    // ADMIN, ARQUITETO e SUPERADMIN podem acessar relatórios
+    const userRole = (session?.user as any)?.role;
+    const canSeeAdmin = userRole === "ADMIN" || userRole === "ARQUITETO" || userRole === "SUPERADMIN";
+    if (status === "authenticated" && !canSeeAdmin) {
+      router.push("/");
+      return;
+    }
+  }, [status, session, router]);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await fetch("/api/admin/reports");
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            router.push("/signin");
+            return;
+          }
+          throw new Error("Erro ao carregar dados");
+        }
+        const data: ReportsData = await res.json();
+        setUsers(data.users || []);
+        setFilteredUsers(data.users || []);
+        setCounts({
+          totalUsers: data.totalUsers || 0,
+          arquitetoCount: data.arquitetoCount || 0,
+          adminCount: data.adminCount || 0,
+          modeloCount: data.modeloCount || 0,
+          clienteCount: data.clienteCount || 0,
+          superAdminCount: data.superAdminCount || 0,
+        });
+      } catch (error) {
+        console.error("Erro ao carregar relatórios:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [router]);
+
+  useEffect(() => {
+    let filtered = users;
+
+    // Filtro por busca (nome, email, CPF)
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (u) =>
+          u.name?.toLowerCase().includes(term) ||
+          u.email.toLowerCase().includes(term) ||
+          u.cpf?.includes(term)
+      );
+    }
+
+    // Filtro por role
+    if (roleFilter !== "all") {
+      filtered = filtered.filter((u) => u.role === roleFilter);
+    }
+
+    setFilteredUsers(filtered);
+  }, [searchTerm, roleFilter, users]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: "2.5rem 2rem", textAlign: "center" }}>
+        <p>Carregando...</p>
+      </div>
+    );
   }
 
-  const [totals, latestUsers] = await Promise.all([
-    prisma.user.groupBy({
-      by: ["role"],
-      _count: { role: true },
-    }),
-    prisma.user.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { id: true, email: true, role: true, createdAt: true },
-    }),
-  ]);
-
-  const totalUsers = totals.reduce((acc, item) => acc + item._count.role, 0);
+  // Mapear role para string amigável
+  const getRoleLabel = (role: string): string => {
+    const roleMap: Record<string, string> = {
+      ARQUITETO: "Arquiteto",
+      ADMIN: "Admin",
+      MODELO: "Modelo",
+      CLIENTE: "Cliente",
+      SUPERADMIN: "Superadmin",
+    };
+    return roleMap[role] || role.toLowerCase();
+  };
 
   const cards = [
-    { label: "Total de usuários", value: totalUsers },
-    {
-      label: "Administradores",
-      value: totals.find((t) => t.role === "ADMIN")?._count.role ?? 0,
-    },
-    {
-      label: "Modelos",
-      value: totals.find((t) => t.role === "MODEL")?._count.role ?? 0,
-    },
-    {
-      label: "Clientes",
-      value: totals.find((t) => t.role === "CLIENT")?._count.role ?? 0,
-    },
+    { label: "Total de usuários", value: counts.totalUsers },
+    { label: "Arquitetos", value: counts.arquitetoCount },
+    { label: "Administradores", value: counts.adminCount },
+    { label: "Modelos", value: counts.modeloCount },
+    { label: "Clientes", value: counts.clienteCount },
+    { label: "Super Admins", value: counts.superAdminCount },
   ];
+
+  // Verificar se ARQUITETO está em modo somente leitura
+  const isReadOnlyArquiteto = (session as any)?.isReadOnlyArquiteto === true;
 
   return (
     <div style={{ padding: "2.5rem 2rem", background: "#f9fafb", minHeight: "100vh" }}>
+      {isReadOnlyArquiteto && (
+        <div
+          style={{
+            padding: "1rem",
+            background: "#fef3c7",
+            border: "1px solid #fbbf24",
+            borderRadius: 8,
+            marginBottom: "1.5rem",
+            fontSize: 14,
+            color: "#92400e",
+          }}
+        >
+          <strong>⚠️ Modo somente leitura:</strong> Você está em modo somente leitura porque existe outra sessão ativa do Arquiteto. Para retomar os poderes de edição, faça login novamente neste dispositivo.
+        </div>
+      )}
       <header style={{ marginBottom: "2rem" }}>
         <p style={{ color: "#9ca3af", textTransform: "uppercase", fontSize: 12 }}>
           Monitoramento interno
@@ -85,41 +200,184 @@ export default async function AdminReportsPage() {
           boxShadow: "0 8px 30px rgba(15,23,42,0.08)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 600 }}>Últimos cadastros</h2>
             <p style={{ color: "#6b7280", fontSize: 14 }}>
-              Últimos 5 usuários criados no banco `tna_studio`.
+              Últimos 30 usuários criados no banco `tna_studio`.
             </p>
           </div>
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-              <th style={{ padding: "0.75rem" }}>Email</th>
-              <th style={{ padding: "0.75rem" }}>Perfil</th>
-              <th style={{ padding: "0.75rem" }}>Criado em</th>
-            </tr>
-          </thead>
-          <tbody>
-            {latestUsers.map((user) => (
-              <tr key={user.id} style={{ borderTop: "1px solid #f3f4f6" }}>
-                <td style={{ padding: "0.75rem" }}>{user.email}</td>
-                <td style={{ padding: "0.75rem", textTransform: "capitalize" }}>
-                  {user.role.toLowerCase()}
-                </td>
-                <td style={{ padding: "0.75rem", color: "#6b7280" }}>
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(user.createdAt)}
-                </td>
+
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+          <input
+            type="text"
+            placeholder="Buscar por nome, email, CPF..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              fontSize: 14,
+            }}
+          />
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            style={{
+              padding: "0.75rem",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              fontSize: 14,
+            }}
+          >
+            <option value="all">Todos os perfis</option>
+            <option value="ARQUITETO">Arquitetos</option>
+            <option value="ADMIN">Administradores</option>
+            <option value="SUPERADMIN">Superadmin</option>
+            <option value="MODELO">Modelos</option>
+            <option value="CLIENTE">Clientes</option>
+          </select>
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                <th style={{ padding: "0.75rem" }}>Nome</th>
+                <th style={{ padding: "0.75rem" }}>Email</th>
+                <th style={{ padding: "0.75rem" }}>CPF</th>
+                <th style={{ padding: "0.75rem" }}>Perfil</th>
+                <th style={{ padding: "0.75rem" }}>Nascimento</th>
+                <th style={{ padding: "0.75rem" }}>Idade</th>
+                <th style={{ padding: "0.75rem" }}>Criado em</th>
+                <th style={{ padding: "0.75rem" }}>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+                    Nenhum usuário encontrado
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => {
+                  const age = user.birthDate
+                    ? (() => {
+                        const birth = new Date(user.birthDate);
+                        const today = new Date();
+                        let a = today.getFullYear() - birth.getFullYear();
+                        const monthDiff = today.getMonth() - birth.getMonth();
+                        if (
+                          monthDiff < 0 ||
+                          (monthDiff === 0 && today.getDate() < birth.getDate())
+                        ) {
+                          a--;
+                        }
+                        return a;
+                      })()
+                    : null;
+                  // Formatar CPF
+                  const formatCpf = (cpf: string | null): string => {
+                    if (!cpf) return "—";
+                    if (cpf.length === 11) {
+                      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+                    }
+                    return cpf;
+                  };
+
+                  // Formatar data de nascimento
+                  const formatBirthDate = (date: string | null): string => {
+                    if (!date) return "—";
+                    return new Intl.DateTimeFormat("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    }).format(new Date(date));
+                  };
+
+                  return (
+                    <tr key={user.id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "0.75rem" }}>{user.name || "—"}</td>
+                      <td style={{ padding: "0.75rem" }}>{user.email}</td>
+                      <td style={{ padding: "0.75rem" }}>{formatCpf(user.cpf)}</td>
+                      <td style={{ padding: "0.75rem" }}>
+                        {getRoleLabel(user.role)}
+                      </td>
+                      <td style={{ padding: "0.75rem" }}>{formatBirthDate(user.birthDate)}</td>
+                      <td style={{ padding: "0.75rem" }}>{age !== null ? `${age} anos` : "—"}</td>
+                      <td style={{ padding: "0.75rem", color: "#6b7280" }}>
+                        {new Intl.DateTimeFormat("pt-BR", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }).format(new Date(user.createdAt))}
+                      </td>
+                      <td style={{ padding: "0.75rem" }}>
+                        {user.role === "MODELO" && (
+                          <button
+                            onClick={() => {
+                              // Abrir modal com dados da modelo
+                              const modal = document.createElement("div");
+                              modal.style.cssText = `
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background: rgba(0,0,0,0.5);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                z-index: 1000;
+                              `;
+                              modal.innerHTML = `
+                                <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                                    <h2 style="font-size: 24px; font-weight: 700;">Dados da Modelo</h2>
+                                    <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
+                                  </div>
+                                  <div style="display: grid; gap: 1rem;">
+                                    <div><strong>Nome:</strong> ${user.name || "—"}</div>
+                                    <div><strong>Email:</strong> ${user.email}</div>
+                                    <div><strong>CPF:</strong> ${formatCpf(user.cpf)}</div>
+                                    <div><strong>Data de Nascimento:</strong> ${formatBirthDate(user.birthDate)}</div>
+                                    <div><strong>Idade:</strong> ${age !== null ? `${age} anos` : "—"}</div>
+                                    <div><strong>Perfil:</strong> ${getRoleLabel(user.role)}</div>
+                                    <div><strong>Criado em:</strong> ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(user.createdAt))}</div>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(modal);
+                              modal.addEventListener("click", (e) => {
+                                if (e.target === modal) modal.remove();
+                              });
+                            }}
+                            style={{
+                              padding: "0.5rem 1rem",
+                              background: "#111827",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              fontSize: 14,
+                              fontWeight: 500,
+                            }}
+                          >
+                            Ver modelo
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );
 }
-

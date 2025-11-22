@@ -1,0 +1,34 @@
+# Arquivos de baixa prioridade para análise de IAs
+# Pasta com documentação histórica e rascunhos
+docs/archive/
+
+# Arquivos de histórico já organizados
+docs/historical/
+
+# Backups
+backups/
+
+# Arquivos temporários
+*.log
+*.cursor
+.cursor/
+cursor-cache/
+
+# Certificados e secrets (NUNCA incluir)
+secrets/
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+
+# Node modules
+node_modules/
+
+# Build artifacts
+.next/
+out/
+build/
+
+

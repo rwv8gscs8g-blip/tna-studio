@@ -1,122 +1,99 @@
 # TNA Studio
 
-Plataforma segura para gerenciamento de conteúdo sensível, construída com Next.js 15, NextAuth.js, PostgreSQL (Neon) e Cloudflare R2.
+Plataforma segura para gerenciamento de galerias fotográficas com controle de acesso granular, armazenamento privado e sessões efêmeras.
 
-## 🏗️ Arquitetura Técnica
+## 🎯 Visão Geral
 
-### Stack Principal
+Sistema desenvolvido para gerenciar sessões fotográficas com:
+- **Galerias por sessão** - Uma galeria = uma sessão fotográfica
+- **Termo de autorização** - PDF obrigatório por galeria
+- **Armazenamento privado** - Cloudflare R2 com URLs assinadas
+- **Acesso controlado** - Modelos veem apenas suas galerias
+- **Sessões seguras** - Expiração automática e revogação
 
-- **Frontend**: Next.js 15 App Router (React 18)
-- **Autenticação**: NextAuth.js v5 (Credentials Provider + JWT)
-- **Banco de Dados**: PostgreSQL (Neon) com Prisma ORM
-- **Storage**: Cloudflare R2 (S3-compatible API)
+## 🏗️ Stack Tecnológico
+
+- **Frontend**: Next.js 15 (App Router), React 18, TypeScript
+- **Autenticação**: NextAuth.js v5 (JWT, Credentials Provider)
+- **Segurança**: Certificado Digital A1 ICP-Brasil (obrigatório para escrita admin)
+- **Banco de Dados**: PostgreSQL (Neon) + Prisma ORM
+- **Storage**: Cloudflare R2 (S3-compatible)
+- **Comunicação**: Twilio (SMS, WhatsApp, Email) - Fase 4
 - **Deploy**: Vercel (Edge + Node.js runtimes)
+- **Validação**: Zod + react-hook-form
 
-### Decisões Arquiteturais
+## 🚀 Quick Start
 
-#### 1. Sessão e Expiração (100% no Servidor)
+### Opção A: Instalação Automática (Recomendado)
 
-**Por que expiração no servidor?**
-- Cliente não é confiável para decisões de segurança
-- Relógio do cliente pode ser alterado, mas servidor sempre usa seu próprio `Date.now()`
-- Validação acontece em cada requisição no callback `jwt` do NextAuth
+```bash
+# Dar permissão de execução
+chmod +x scripts/setup-local.sh
 
-**Como funciona:**
-1. Token JWT criado com `iat` (issued at) e `exp` (expires at = iat + 300s)
-2. Em cada requisição, callback `jwt` valida se `token.exp < Date.now()` (servidor)
-3. Se expirado, retorna `null` → callback `session` retorna `user: null`
-4. Middleware detecta sessão inválida e redireciona para login
+# Executar setup completo
+./scripts/setup-local.sh
+```
 
-**Resultado:** Mesmo que cliente altere relógio, servidor rejeita tokens expirados.
+O script faz automaticamente:
+- ✅ Verifica pré-requisitos (Node.js, npm, openssl)
+- ✅ Cria/valida `.env.local`
+- ✅ Instala dependências
+- ✅ Configura banco de dados (migrations + Prisma Client)
+- ✅ Cria usuários de teste (incluindo SUPER_ADMIN)
+- ✅ Valida segurança (pré-start, certificado A1)
+- ✅ Limpa cache
 
-#### 2. Tokens Efêmeros e Build Timestamp
+**Após o setup**, inicie o servidor:
+```bash
+npm run dev
+```
 
-**Por que tokens efêmeros?**
-- Previne reutilização de URLs após logout
-- URLs não podem ser copiadas/coladas sem token válido
-- Cada sessão gera token único que expira em 5 minutos
+### Opção B: Instalação Manual
 
-**Por que build timestamp?**
-- Tokens criados antes de restart do servidor são automaticamente inválidos
-- Garante que reiniciar servidor invalida todas as sessões antigas
-- Singleton global (`global.__BUILD_TIMESTAMP`) persiste entre requisições
+### 1. Instalar Dependências
 
-**Como funciona:**
-- `BUILD_TIMESTAMP` gerado uma vez quando processo Node.js inicia
-- Token com `iat < BUILD_TIMESTAMP` é rejeitado
-- Middleware limpa cookies automaticamente quando detecta sessão inválida
+```bash
+npm install
+```
 
-#### 3. R2 Privado com URLs Assinadas
+### 2. Configurar Variáveis de Ambiente
 
-**Por que R2 é privado?**
-- Conteúdo sensível não deve ser acessível publicamente
-- URLs diretas permitiriam acesso sem autenticação
-- URLs assinadas expiram automaticamente (1 hora padrão)
-
-**Como funciona:**
-- Uploads salvos no R2 com `CacheControl: no-cache, no-store`
-- URLs geradas via `@aws-sdk/s3-request-presigner` com expiração
-- Validação de permissões antes de gerar URL (`canAccessPhoto`)
-- Em desenvolvimento: usa rota local `/api/media/serve/[photoId]` (mock)
-
-**Modo Mock vs Produção:**
-- **Desenvolvimento**: Sempre usa rota local, mesmo se R2 configurado
-- **Produção**: Exige R2 configurado, gera URLs assinadas reais
-- Fallback seguro: erro se R2 não configurado em produção
-
-#### 4. Middleware Simplificado (< 1 MB)
-
-**Por que simplificado?**
-- Vercel plano gratuito limita middleware a 1 MB
-- Removido `BUILD_VERSION` do middleware (não crítico)
-- Mantido apenas validação essencial de autenticação
-
-**O que faz:**
-- Protege rotas autenticadas (exceto `/signin`, `/api/auth`)
-- Redireciona para login se sessão inválida
-- Limpa cookies antigos automaticamente
-- Adiciona headers de segurança (X-Content-Type-Options, etc.)
-
-**Limitações:**
-- Não pode usar Prisma diretamente (Edge Runtime)
-- Não pode usar bibliotecas pesadas
-- Deve ser assíncrono e rápido
-
-#### 5. Rate Limiting e Validações de Upload
-
-**Validações implementadas:**
-- **Tamanho máximo**: 10 MB por arquivo
-- **Tipos MIME permitidos**: image/jpeg, image/png, image/webp, image/gif
-- **Rate limiting**: 10 uploads por minuto por usuário/IP
-- **Logs de auditoria**: userId, tamanho, IP, timestamp, duração
-
-**Por que essas validações?**
-- Previne abuso (spam de uploads)
-- Protege storage (evita arquivos muito grandes)
-- Garante segurança (apenas imagens)
-- Facilita debugging (logs estruturados)
-
-## 🚀 Como Rodar Localmente
-
-### 1. Configurar Variáveis de Ambiente
-
-Crie `.env` na raiz do projeto:
+Crie `.env.local` na raiz (copie de `.env.local.example`):
 
 ```env
-# Banco de dados
-DATABASE_URL="postgresql://user:pass@host:port/tna_studio"
-DIRECT_URL="postgresql://user:pass@host:port/tna_studio"
+# Banco de dados (OBRIGATÓRIO - banco único Neon para localhost e produção)
+DATABASE_URL="postgresql://user:pass@host:port/database?sslmode=require"
+DIRECT_URL="postgresql://user:pass@host:port/database?sslmode=require"
 
-# Autenticação
+# Autenticação (OBRIGATÓRIO)
 NEXTAUTH_SECRET="gerar_com_openssl_rand_base64_32"
 NEXTAUTH_URL="http://localhost:3000"
 AUTH_TRUST_HOST=true
 
+# Certificado A1 ICP-Brasil (OBRIGATÓRIO para escrita admin)
+CERT_A1_FILE_PATH=./secrets/certs/assinatura_a1.pfx
+CERT_A1_PASSWORD="***NAO_COMMITAR***"
+CERT_A1_OWNER_NAME="LUIS MAURICIO JUNQUEIRA ZANIN"
+CERT_A1_ENFORCE_WRITES=true
+
+# Modo de teste (logs extras)
+SECURITY_TEST_MODE=true
+
 # Storage R2 (opcional em dev - usa modo mock)
-CLOUDFLARE_ACCOUNT_ID="seu_account_id"
-R2_ACCESS_KEY_ID="sua_access_key"
-R2_SECRET_ACCESS_KEY="sua_secret_key"
+CLOUDFLARE_ACCOUNT_ID=""
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
 R2_BUCKET_NAME="tna-studio-media"
+
+# Twilio (Fase 4 - opcional por enquanto)
+TWILIO_ACCOUNT_SID=""
+TWILIO_AUTH_TOKEN=""
+TWILIO_PHONE_NUMBER=""
+TWILIO_WHATSAPP_NUMBER=""
+SENDGRID_API_KEY="" # ou RESEND_API_KEY
+EMAIL_FROM="noreply@tna.studio"
+EMAIL_TO_AUDIT="token@zanin.art.br"
+WHATSAPP_TO_AUDIT="[redacted-phone]"
 ```
 
 **Gerar NEXTAUTH_SECRET:**
@@ -124,32 +101,61 @@ R2_BUCKET_NAME="tna-studio-media"
 openssl rand -base64 32
 ```
 
-### 2. Instalar Dependências
-
-```bash
-npm install
-```
-
 ### 3. Configurar Banco de Dados
 
 ```bash
-# Rodar migrations
-npx prisma migrate dev --name init
+# Rodar migrations (banco único Neon)
+npx prisma migrate deploy
 
 # Gerar Prisma Client
 npx prisma generate
 
-# (Opcional) Popular com dados de teste
+# Criar usuários de teste (inclui SUPER_ADMIN)
 npm run seed
 ```
 
-### 4. Iniciar Servidor
+**Usuários criados:**
+- `super@tna.studio` / `Super@2025!` (SUPER_ADMIN)
+- `admin@tna.studio` / `Admin@2025!` (ADMIN)
+- `model1@tna.studio` / `Model1@2025!` (MODEL)
+- `client1@tna.studio` / `Client1@2025!` (CLIENT)
+
+### 4. Validação Pré-Start (Obrigatória)
+
+**IMPORTANTE**: Antes de iniciar o servidor, o script de validação pré-start é executado automaticamente.
+
+**O que valida:**
+- Schema Prisma (hash de migrations)
+- Versão do código (Git commit SHA)
+- Versionamento interno (AppConfig)
+- Ambiente (localhost vs produção)
+
+**Como usar:**
+```bash
+# Validação manual
+npm run validate
+
+# Desenvolvimento (validação automática)
+npm run dev
+
+# Desenvolvimento sem validação (NÃO RECOMENDADO - apenas emergências)
+npm run dev:unsafe
+```
+
+**Se validação falhar:**
+- Script bloqueia o boot
+- Exibe instruções de sincronização
+- Pode restaurar automaticamente (se `AUTO_RESTORE=true`)
+
+### 5. Iniciar Servidor
 
 ```bash
 npm run dev
 ```
 
 Acesse `http://localhost:3000`
+
+**Importante**: Certificado A1 é obrigatório para operações administrativas. Configure `CERT_A1_FILE_PATH` e `CERT_A1_PASSWORD` em `.env.local`.
 
 ## 📁 Estrutura do Projeto
 
@@ -162,112 +168,77 @@ src/
 │   │   ├── media/         # Upload e URLs assinadas
 │   │   └── session/       # Tokens efêmeros
 │   ├── components/        # Componentes React
-│   │   ├── Navigation.tsx
-│   │   ├── SessionTimer.tsx
-│   │   └── SignOutButton.tsx
 │   ├── galleries/         # Páginas de galerias
+│   ├── model/             # Área da modelo (Fase 3)
 │   ├── admin/             # Painel administrativo
-│   ├── profile/           # Perfil do usuário
-│   └── layout.tsx         # Layout raiz com SessionProvider
+│   └── profile/           # Perfil do usuário
 ├── lib/
 │   ├── prisma.ts          # Singleton Prisma Client
 │   ├── r2.ts              # Cliente R2 (S3-compatible)
-│   ├── r2-secure.ts       # URLs assinadas com validação
-│   ├── image-rights.ts    # Validação de permissões
-│   ├── image-naming.ts    # Nomenclatura segura (CPF-based)
-│   ├── build-version.ts   # Sistema de invalidação por build
-│   └── session-tokens.ts  # Tokens efêmeros
+│   ├── validators.ts      # Validações (CPF, telefone, etc.)
+│   ├── otp.ts             # Geração e validação de OTP
+│   └── image-rights.ts    # Validação de permissões
 ├── middleware.ts           # Proteção de rotas (Edge Runtime)
 └── auth.ts                # Configuração NextAuth
 ```
 
 ## 🔐 Segurança
 
-### Autenticação
+### Sessões
 
-- **Sessão JWT**: 5 minutos (300 segundos)
-- **Cookies**: `httpOnly`, `sameSite: lax`, `secure` em produção
-- **Rate limiting**: 5 tentativas de login por minuto por IP
-- **Validação**: Servidor valida expiração em cada requisição
+- **Admin**: 10 minutos
+- **Modelo/Cliente**: 5 minutos
+- **Extensões**: +5min (tela), +30min (Sync.com)
+- **Limite total**: 2 horas por login
+- **Validação**: 100% no servidor (cliente não é confiável)
 
-### Autorização
-
-- **RBAC**: Roles (ADMIN, MODEL, CLIENT)
-- **Validação de acesso**: `canAccessGallery`, `canAccessPhoto`
-- **Admin**: Acesso total (bypass de validações)
-
-### Storage
+### Armazenamento
 
 - **R2 privado**: Sem acesso público direto
-- **URLs assinadas**: Expiração de 1 hora (configurável)
+- **URLs assinadas**: Expiração de 1 hora
 - **Validação**: Permissões verificadas antes de gerar URL
 
-### Middleware
+### Validações
 
-- **Proteção de rotas**: Todas exceto `/signin` e `/api/auth`
-- **Limpeza automática**: Cookies antigos removidos
-- **Headers de segurança**: X-Content-Type-Options, X-Frame-Options, etc.
+- **CPF**: Formato + dígitos verificadores
+- **Telefone**: E.164 (+CC DDD Nº)
+- **Passaporte**: ICAO (2 letras + 6-9 alfanuméricos)
+- **Email**: RFC 5322
+- **Senha**: 8+ chars, maiúscula, minúscula, número, símbolo
 
-## 📊 APIs Principais
+## 📊 Funcionalidades
 
-### Upload de Mídia
+### Atuais (MVP)
 
-```http
-POST /api/media/upload
-Content-Type: multipart/form-data
+- ✅ Login com email/senha
+- ✅ Sessão com timer visual
+- ✅ Criação de galerias
+- ✅ Upload de fotos (até 10 MB)
+- ✅ Painel administrativo básico
 
-file: File
-galleryId: string
-sessionId?: string
-cpf?: string
-```
+### Em Desenvolvimento (Fase 2-3)
 
-**Validações:**
-- Tamanho máximo: 10 MB
-- Tipos permitidos: image/jpeg, image/png, image/webp, image/gif
-- Rate limit: 10 uploads/minuto por usuário/IP
+- 🔄 Galerias com termo de autorização
+- 🔄 Estrutura 3 colunas (Thumbnail | Termo | Sync.com)
+- 🔄 Área da modelo (`/model`)
+- 🔄 Upload de termo PDF (obrigatório)
+- 🔄 Grid responsivo de fotos
 
-### URL Assinada
+### Planejadas (Fase 4+)
 
-```http
-GET /api/media/sign?photoId={id}&expiresIn={seconds}
-```
+- 📋 Login por SMS/WhatsApp (Twilio)
+- 📋 2FA completo
+- 📋 Sistema de auditoria
+- 📋 Gateway Sync.com
+- 📋 Lightbox custom
 
-**Validações:**
-- Verifica permissões (`canAccessPhoto`)
-- Gera URL assinada do R2 (produção) ou rota local (dev)
+## 🚢 Deploy
 
-### Galerias
+### Variáveis Obrigatórias (Vercel)
 
-```http
-GET /api/galleries          # Lista galerias do usuário
-POST /api/galleries         # Cria nova galeria
-GET /api/galleries/[id]     # Detalhes da galeria
-```
-
-## 🚢 Deploy em Produção
-
-### Checklist Completo
-
-Consulte `CHECKLIST-DEPLOY.md` para:
-- ✅ Lista completa de variáveis de ambiente
-- ✅ Configuração do Cloudflare R2
-- ✅ Configuração do Neon PostgreSQL
-- ✅ Troubleshooting comum
-- ✅ Validação pós-deploy
-
-### Variáveis Obrigatórias
-
-**Vercel Environment Variables:**
-- `DATABASE_URL` - Connection string PostgreSQL
-- `DIRECT_URL` - Mesma do DATABASE_URL (para migrations)
-- `NEXTAUTH_SECRET` - Chave secreta (32+ caracteres)
-- `NEXTAUTH_URL` - URL completa da aplicação
-- `AUTH_TRUST_HOST` - `true`
-- `CLOUDFLARE_ACCOUNT_ID` - ID da conta Cloudflare
-- `R2_ACCESS_KEY_ID` - Access Key do R2
-- `R2_SECRET_ACCESS_KEY` - Secret Key do R2
-- `R2_BUCKET_NAME` - Nome do bucket R2
+- `DATABASE_URL`, `DIRECT_URL`
+- `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `AUTH_TRUST_HOST`
+- `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
 
 ### Build e Deploy
 
@@ -279,72 +250,145 @@ npm run build
 vercel --prod
 ```
 
-## ✨ Funcionalidades Atuais
+**Limitações:**
+- Middleware < 1 MB (Vercel free plan)
+- Edge Runtime (sem Prisma direto)
 
-### Autenticação e Sessão
-- ✅ Login com NextAuth Credentials
-- ✅ Sessão JWT com expiração de 5 minutos
-- ✅ SessionTimer visível em todas as páginas
-- ✅ Sinalização visual quando falta < 1 minuto
-- ✅ Botão para estender sessão em 5 minutos
-- ✅ Aviso e redirecionamento quando expira
+## 🔐 Arquitetura de Segurança
 
-### Galerias e Mídia
-- ✅ Criação de galerias
-- ✅ Upload de fotos (até 10 MB)
-- ✅ Validação de tipos MIME
-- ✅ Rate limiting (10 uploads/minuto)
-- ✅ Thumbnails com URLs assinadas (R2)
-- ✅ Admin vê todas as galerias
+### Banco de Dados Unificado
 
-### Administração
-- ✅ Painel de usuários (Admin)
-- ✅ Relatórios básicos (Admin)
-- ✅ Criação manual de usuários
+**Um único banco Neon** compartilhado entre localhost e produção:
 
-## 📝 Extensões Futuras
+- ✅ **DATABASE_URL** e **DIRECT_URL** apontam para o mesmo banco
+- ✅ **Localhost e produção** são dois "clientes" diferentes
+- ✅ **Integridade garantida** por:
+  - Script pré-start (valida schema, código, migrations)
+  - Version-guards (valida versões antes de escrita)
+  - AdminSession (rastreia ambiente e versões)
+  - Certificado A1 obrigatório (validação jurídica)
 
-O projeto está preparado para receber:
+**Estratégia de Rollback:**
+- Neon Branching para isolamento e testes
+- Point-in-Time Restore disponível
+- Backup lógico periódico (`scripts/backup/backup-logico.sh`)
 
-### 2FA (Two-Factor Authentication)
-- Fluxos de autenticação em `src/auth.ts`
-- Callbacks `jwt` e `session` podem incluir `twoFactorVerified`
-- UI em `/profile` para configurar 2FA
+**Documentação**: `docs/NEON-BRANCHING-STRATEGY.md`
 
-### Integração com Twilio / Zenvia / WhatsApp
-- Camada de notificações em `src/lib/notifications.ts`
-- APIs para envio de SMS/WhatsApp
-- Tokens de verificação via SMS
+### Certificado Digital A1 ICP-Brasil (Obrigatório)
 
-### Servidor SMTP / Email Providers
-- Integração com SendGrid, Resend, ou SMTP direto
-- Templates de email em `src/lib/emails/`
-- Envio de links de verificação, notificações, etc.
+**Por que Certificado A1 é obrigatório para operações administrativas:**
 
-### Auditoria Avançada
-- Tabela `AuditLog` no Prisma schema
-- Middleware de logging em `src/lib/audit.ts`
-- Dashboard de auditoria em `/admin/audit`
+1. **Validade Jurídica Plena** (Lei 14.063/2020)
+   - Fornece força probatória no Brasil
+   - Reconhecido internacionalmente pela cadeia ICP-Brasil
+   - Equivalente ao mecanismo usado por plataformas críticas do governo (e-CAC, SEFAZ, eSocial)
 
-## 📚 Documentação Adicional
+2. **Não-Repúdio**
+   - Garantido pela cadeia ICP-Brasil
+   - WebAuthn não fornece não-repúdio (limitação técnica)
+   - Cada operação pode ser rastreada ao certificado específico
 
-- `CHECKLIST-DEPLOY.md` - Guia completo de deploy
-- `ARQUITETURA-SEGURANCA-SESSAO.md` - Detalhes de segurança
-- `PONTOS-CRITICOS-DEPLOY.md` - Análise pré-deploy
-- `internal/test-pages.md` - Credenciais de teste (não versionado)
+3. **Assinatura Digital**
+   - Permite assinatura criptográfica de ações administrativas
+   - Criar galeria, subir fotos, enviar termo, editar dados de modelos
+   - Todas operações críticas são assinadas digitalmente
 
-## 🤝 Contribuindo
+4. **Auditoria e Conformidade**
+   - Comprova identidade do administrador perante auditorias
+   - Atende obrigações legais (LGPD/GDPR)
+   - Protege em disputas judiciais futuras
 
-1. Siga a arquitetura de segurança estabelecida
-2. Mantenha lógica de segurança no servidor
-3. Adicione logs de auditoria para operações críticas
-4. Teste com `NODE_ENV=production` antes de deploy
+5. **Proteção contra Alterações Indevidas**
+   - Previne intrusões não autorizadas
+   - Evita conflitos entre ambientes (localhost/produção)
+   - Desestimula acessos simultâneos
 
-## 📄 Licença
+**Referências Legais:**
+- Lei 14.063/2020: Dispositivos de segurança da informação
+- MP 2.200-2/2001: Infraestrutura de Chaves Públicas Brasileira (ICP-Brasil)
+- ICP-Brasil: https://www.gov.br/iti/pt-br/assuntos/repositorio/icp-brasil
 
-Proprietário - Todos os direitos reservados
+**Configuração:**
+```env
+CERT_A1_FILE_PATH=./secrets/certs/assinatura_a1.pfx
+CERT_A1_PASSWORD="***NAO_COMMITAR***"
+CERT_A1_ENFORCE_WRITES=true
+```
+
+**Sem certificado válido**: Operações administrativas são **BLOQUEADAS** (hard fail → 403)
+
+### Seis Camadas de Verificação
+
+Toda operação administrativa de escrita deve passar por **6 camadas obrigatórias**:
+
+1. ✅ **Certificado A1** - Válido, ICP-Brasil, associado ao admin
+2. ✅ **Login do Admin** - Sessão válida, token JWT válido
+3. ✅ **Script Pré-Start** - Validação executada, sincronizado
+4. ✅ **Ambiente** - Localhost não conectado à produção
+5. ✅ **Guard de Versão** - Código e migrations correspondem
+6. ✅ **Integridade do Schema** - Hash do schema corresponde
+
+**Nenhuma operação administrativa pode ser executada sem passar por todas as 6 camadas.**
+
+### Neon Branching
+
+**Estratégia de Isolamento:**
+- Isolamento para testar migrations
+- Prevenção de corrupção acidental
+- Rollback rápido
+- Teste de versões antes do merge
+
+**Documentação Neon**: https://neon.tech/docs/branching
+
+### Super User (SUPER_ADMIN)
+
+**Papel:**
+- **PODE executar** operações administrativas (com Certificado A1)
+- **PODE gerenciar** certificados A1 (registrar/atualizar)
+- **PODE criar/editar** usuários ADMIN
+- **PODE atualizar** AppConfig (versões autorizadas)
+- **Atua como guardião** do mecanismo de confiança
+
+**Login de teste:**
+- Email: `super@tna.studio`
+- Senha: `Super@2025!`
+
+**Diferença de ADMIN:**
+- ADMIN: Executa operações (com A1), mas não gerencia certificados
+- SUPER_ADMIN: Tudo que ADMIN faz + gerencia certificados e AppConfig
+
+## 📚 Documentação
+
+- **`README.md`** - Este documento (visão geral e setup)
+- **`ARQUITETURA.md`** - Arquitetura técnica detalhada
+- **`SEGURANCA.md`** - Arquitetura de segurança detalhada (Certificado A1, 6 camadas, etc.)
+- **`DECISOES-CONSOLIDADAS.md`** - Decisões de produto e ordem de implementação
+- **`INTEGRACAO-TWILIO-PASSO-A-PASSO.md`** - Guia de integração Twilio (Fase 4)
+- **`AVALIACAO-ARQUITETURA-FINAL.md`** - Avaliação técnica completa da arquitetura
+
+## 🗺️ Roadmap
+
+### Fase 2: Galerias (🔄 Atual)
+- Criar galeria com data de sessão
+- Upload de termo PDF
+- Upload de fotos (até 30, validação de termo)
+- Estrutura 3 colunas responsiva
+
+### Fase 3: Área da Modelo
+- Página `/model` com perfil e galerias
+- Subpáginas de galerias
+- Edição de perfil
+- Mensagens do admin
+
+### Fase 4: Integração Twilio
+- SMS/WhatsApp para login
+- Email para auditoria
+- 2FA completo
+
+### Fase 5+: Autenticação Avançada, Auditoria, Sync.com
 
 ---
 
-**Última atualização**: 2025-11-19
-**Versão**: 0.1.0 (MVP)
+**Versão**: 0.2.0 (Reconstrução)
+**Status**: Fase 2 em desenvolvimento

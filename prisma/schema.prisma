@@ -1,107 +1,412 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-enum Role {
-  ADMIN
-  MODEL
-  CLIENT
+model AdminCertificate {
+  id                                    String    @id @default(cuid())
+  userId                                String    @unique
+  certificateHash                       String
+  certificateEncrypted                  String
+  serialNumber                          String
+  issuer                                String
+  validFrom                             DateTime
+  validUntil                            DateTime
+  isActive                              Boolean   @default(true)
+  lastUsedAt                            DateTime?
+  createdBy                             String
+  createdAt                             DateTime  @default(now())
+  updatedAt                             DateTime  @updatedAt
+  User_AdminCertificate_createdByToUser User      @relation("AdminCertificate_createdByToUser", fields: [createdBy], references: [id])
+  User_AdminCertificate_userIdToUser    User      @relation("AdminCertificate_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([serialNumber])
+  @@index([userId])
+  @@index([validUntil])
 }
 
-model User {
+model AdminMessage {
   id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  role         Role     @default(MODEL)
+  type         String
+  targetUserId String?
+  title        String
+  content      String
+  createdBy    String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
-  // Relações
-  galleries    Gallery[]
-  ownedRights  ImageRights[] @relation("PhotoOwner")
-  galleryAccess GalleryAccess[]
+  User         User?    @relation(fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([targetUserId])
+  @@index([type])
+}
+
+model AdminOperation {
+  id                String   @id @default(cuid())
+  userId            String
+  operationType     String
+  resourceType      String?
+  resourceId        String?
+  certificateSerial String
+  signatureHash     String
+  signatureData     String
+  ip                String
+  userAgent         String
+  success           Boolean  @default(true)
+  errorMessage      String?
+  createdAt         DateTime @default(now())
+  User              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([certificateSerial])
+  @@index([createdAt])
+  @@index([operationType])
+  @@index([userId])
+}
+
+model ArquitetoSession {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation("ArquitetoSession", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model AppConfig {
+  id                         String   @id @default("singleton")
+  authorizedCodeVersion      String?
+  authorizedSchemaVersion    String?
+  authorizedMigrationVersion String?
+  productionWriteEnabled     Boolean  @default(true)
+  preStartValidationEnabled  Boolean  @default(true)
+  updatedAt                  DateTime @updatedAt
+  updatedBy                  String?
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  email        String
+  role         Role?
+  ip           String
+  userAgent    String
+  country      String?
+  city         String?
+  method       String
+  action       String
+  sessionTime  Int?
+  success      Boolean  @default(true)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  User         User?    @relation(fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([email])
+  @@index([userId])
 }
 
 model Gallery {
+  id             String          @id @default(cuid())
+  title          String
+  description    String?
+  userId         String?
+  isPrivate      Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  ownerCpf       String?
+  ownerPassport  String?
+  sessionDate    DateTime?
+  syncLink       String?
+  syncPassword   String?
+  termDocumentId String?         @unique
+  User           User?           @relation(fields: [userId], references: [id])
+  GalleryAccess  GalleryAccess[]
+  Photo          Photo[]
+  TermDocument   TermDocument?
+
+  @@index([ownerCpf])
+  @@index([ownerPassport])
+  @@index([sessionDate])
+  @@index([userId])
+}
+
+model GalleryAccess {
   id          String   @id @default(cuid())
-  title       String
-  description String?
-  userId      String
-  isPrivate   Boolean  @default(true)
+  galleryId   String
+  granteeId   String
+  canDownload Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  // Relações
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  photos      Photo[]
-  access      GalleryAccess[]
-  
+  Gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  User        User     @relation(fields: [granteeId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryId, granteeId])
+  @@index([granteeId])
+}
+
+model ImageRights {
+  id             String    @id @default(cuid())
+  photoId        String    @unique
+  ownerId        String
+  hasUsageRights Boolean   @default(false)
+  allowedRoles   Role[]
+  allowedUsers   String[]
+  expiresAt      DateTime?
+  metadata       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  User           User      @relation(fields: [ownerId], references: [id])
+  Photo          Photo     @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+}
+
+model OtpToken {
+  id        String   @id @default(cuid())
+  phone     String
+  cpf       String?
+  passport  String?
+  email     String
+  otp       String
+  ip        String
+  userAgent String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  userId    String?
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+
+  @@index([expiresAt])
+  @@index([phone, otp])
   @@index([userId])
 }
 
 model Photo {
-  id          String   @id @default(cuid())
-  key         String   @unique // Path no storage (ex: "cpf-12345678901/session-001/photo-001.jpg")
+  id          String       @id @default(cuid())
+  key         String       @unique
   title       String?
   mimeType    String
-  bytes       Int      // Tamanho em bytes
+  bytes       Int
   galleryId   String
-  isSensitive Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relações
-  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-  rights      ImageRights?
-  
+  isSensitive Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  hash        String?
+  ImageRights ImageRights?
+  Gallery     Gallery      @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
   @@index([galleryId])
+  @@index([hash])
   @@index([key])
 }
 
-model ImageRights {
-  id            String    @id @default(cuid())
-  photoId       String    @unique
-  ownerId       String    // User que possui os direitos
-  hasUsageRights Boolean  @default(false)
-  allowedRoles  Role[]    // Roles permitidos (ADMIN sempre tem acesso)
-  allowedUsers  String[]  // IDs de usuários específicos permitidos
-  expiresAt     DateTime? // Expiração opcional
-  metadata      String?   // JSON com termos, restrições, etc.
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  // Relações
-  photo         Photo     @relation(fields: [photoId], references: [id], onDelete: Cascade)
-  owner         User      @relation("PhotoOwner", fields: [ownerId], references: [id])
-  
-  @@index([ownerId])
+model TermDocument {
+  id         String   @id @default(cuid())
+  galleryId  String   @unique
+  key        String
+  mimeType   String
+  bytes      Int
+  uploadedBy String
+  createdAt  DateTime @default(now())
+  Gallery    Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  @@index([galleryId])
+  @@index([uploadedBy])
 }
 
-model GalleryAccess {
+enum EnsaioStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Ensaio {
+  id               String          @id @default(cuid())
+  title            String
+  slug             String          @unique
+  description      String?
+  shootDate        DateTime? // Data do ensaio (obrigatório na criação, usado para ordenação)
+  status           EnsaioStatus    @default(PUBLISHED) // "DRAFT" | "PUBLISHED"
+  createdById      String
+  subjectCpf       String // CPF do MODELO ou CLIENTE associado ao ensaio (obrigatório, apenas MODELO ou CLIENTE)
+  coverImageKey    String? // Chave R2 da foto de capa (ex: ensaio-123/cover.jpg) - nunca URL pública
+  termPdfKey       String? // Chave R2 do PDF do termo (ex: ensaio-123/term.pdf) - nunca URL pública
+  syncFolderUrl    String? // URL do link do Sync.com (MUITO SENSÍVEL - apenas para ARQUITETO/ADMIN via API protegida)
+  d4signDocumentId String? // ID do documento no D4Sign (para integração futura) - nullable
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdBy        User            @relation("EnsaioCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  subject          User            @relation("EnsaiosPorCpf", fields: [subjectCpf], references: [cpf], onDelete: Cascade)
+  photos           EnsaioPhoto[] // Lista das melhores fotos do ensaio (até 30 fotos)
+  projetos         EnsaioProjeto[] // Relação muitos-para-muitos com Projeto
+  produtos         EnsaioProduto[] // Relação muitos-para-muitos com Produto
+
+  @@index([createdById])
+  @@index([subjectCpf])
+  @@index([slug])
+  @@index([status])
+  @@index([shootDate])
+}
+
+model EnsaioPhoto {
+  id         String   @id @default(cuid())
+  ensaioId   String
+  ensaio     Ensaio   @relation(fields: [ensaioId], references: [id], onDelete: Cascade)
+  storageKey String // Chave R2 da foto (ex: ensaio-123/photo-01.jpg) - nunca URL pública, sempre gerar signed URL
+  sortOrder  Int      @default(0) // Ordem de exibição (0 = primeiro, usado para ordenar as melhores fotos)
+  createdAt  DateTime @default(now())
+
+  @@index([ensaioId])
+  @@index([sortOrder])
+  @@index([storageKey])
+}
+
+model Projeto {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  description String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  ensaios     EnsaioProjeto[] // Relação muitos-para-muitos com Ensaio
+
+  @@index([slug])
+  @@index([active])
+}
+
+model EnsaioProjeto {
   id        String   @id @default(cuid())
-  galleryId String
-  granteeId String  // User que recebe acesso
-  canDownload Boolean @default(false)
+  ensaioId  String
+  projetoId String
+  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id], onDelete: Cascade)
+  projeto   Projeto  @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([ensaioId, projetoId])
+  @@index([ensaioId])
+  @@index([projetoId])
+}
+
+model Produto {
+  id            String           @id @default(cuid())
+  nome          String
+  descricao     String?
+  preco         Float
+  categoria     String? // Ex: "Pacote", "Promoção", "TFP"
+  isPromocao    Boolean          @default(false) // Para destacar promoções
+  isTfp         Boolean          @default(false) // Para destacar TFP/Permuta
+  coverImageKey String? // Chave R2 da foto principal do produto
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  ensaios       EnsaioProduto[] // Relação muitos-para-muitos com Ensaio
+  photos        ProdutoPhoto[] // Mini galeria do produto (5 fotos máx)
+  intencoes     IntencaoCompra[] // Intenções de compra das modelos
+
+  @@index([categoria])
+  @@index([isPromocao])
+  @@index([isTfp])
+}
+
+model ProdutoPhoto {
+  id         String   @id @default(cuid())
+  produtoId  String
+  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  storageKey String // Chave R2 da foto (ex: produto-123/photo-01.jpg) - nunca URL pública
+  sortOrder  Int      @default(0) // Ordem de exibição (0 = primeiro)
+  createdAt  DateTime @default(now())
+
+  @@index([produtoId])
+  @@index([sortOrder])
+}
+
+model EnsaioProduto {
+  id        String   @id @default(cuid())
+  ensaioId  String
+  produtoId String
+  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id], onDelete: Cascade)
+  produto   Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([ensaioId, produtoId])
+  @@index([ensaioId])
+  @@index([produtoId])
+}
+
+model IntencaoCompra {
+  id        String   @id @default(cuid())
+  modeloId  String
+  produtoId String
+  status    String   @default("PENDENTE") // "PENDENTE" | "APROVADA" | "REJEITADA" | "CONCLUIDA"
+  produto   Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  modelo    User     @relation("IntencoesCompra", fields: [modeloId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relações
-  gallery   Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-  grantee   User     @relation(fields: [granteeId], references: [id], onDelete: Cascade)
-  
-  @@unique([galleryId, granteeId])
-  @@index([granteeId])
+
+  @@index([modeloId])
+  @@index([produtoId])
+  @@index([status])
+}
+
+model User {
+  id                                                String             @id @default(cuid())
+  email                                             String             @unique // OBRIGATÓRIO
+  name                                              String?
+  passwordHash                                      String
+  role                                              Role               @default(MODELO)
+  createdAt                                         DateTime           @default(now())
+  updatedAt                                         DateTime           @updatedAt
+  acceptedAt                                        DateTime?
+  address                                           String?
+  adminMessage                                      String?
+  birthDate                                         DateTime? // OBRIGATÓRIO (idade >= 18)
+  city                                              String?
+  country                                           String?
+  cpf                                               String?            @unique // OBRIGATÓRIO (chave para galerias)
+  gdprAccepted                                      Boolean            @default(false)
+  lgpdAccepted                                      Boolean            @default(false)
+  passport                                          String?            @unique
+  personalDescription                               String?
+  phone                                             String? // OBRIGATÓRIO (formato E.164)
+  profileImage                                      String?
+  state                                             String?
+  termsAccepted                                     Boolean            @default(false)
+  twoFactorEnabled                                  Boolean            @default(false)
+  zipCode                                           String?
+  AdminCertificate_AdminCertificate_createdByToUser AdminCertificate[] @relation("AdminCertificate_createdByToUser")
+  AdminCertificate_AdminCertificate_userIdToUser    AdminCertificate?  @relation("AdminCertificate_userIdToUser")
+  AdminMessage                                      AdminMessage[]
+  AdminOperation                                    AdminOperation[]
+  ArquitetoSession                                  ArquitetoSession[] @relation("ArquitetoSession")
+  AuditLog                                          AuditLog[]
+  Ensaio                                            Ensaio[]           @relation("EnsaioCreatedBy")
+  EnsaiosPorCpf                                     Ensaio[]           @relation("EnsaiosPorCpf")
+  Gallery                                           Gallery[]
+  GalleryAccess                                     GalleryAccess[]
+  ImageRights                                       ImageRights[]
+  OtpToken                                          OtpToken[]
+  IntencoesCompra                                   IntencaoCompra[]   @relation("IntencoesCompra")
+
+  @@index([email])
+  @@index([phone])
+}
+
+enum Role {
+  ARQUITETO
+  ADMIN
+  MODELO
+  CLIENTE
+  SUPERADMIN
 }

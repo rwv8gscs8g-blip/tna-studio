@@ -54,4 +54,13 @@ tna-studio-1.0.0
 tna-studio-*.*
 *.cursor
 .cursor/
-cursor-cache/ 
+cursor-cache/
+
+# Certificados e secrets (NUNCA commitar)
+/secrets/
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer 

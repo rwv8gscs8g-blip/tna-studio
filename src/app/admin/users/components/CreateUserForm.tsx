@@ -9,7 +9,17 @@ type Props = {
 
 export default function CreateUserForm({ roles }: Props) {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: roles[0] ?? "MODEL" });
+  // Define MODELO como padrão (primeiro na lista)
+  const defaultRole = roles.find(r => r === "MODELO") || roles[0] || "MODELO";
+  const [form, setForm] = useState({ 
+    name: "", 
+    email: "", 
+    password: "", 
+    role: defaultRole,
+    cpf: "",
+    phone: "",
+    birthDate: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +44,7 @@ export default function CreateUserForm({ roles }: Props) {
       return;
     }
 
-    setForm({ name: "", email: "", password: "", role: form.role });
+    setForm({ name: "", email: "", password: "", role: form.role, cpf: "", phone: "", birthDate: "" });
     setSuccess("Usuário criado com sucesso.");
     router.refresh();
   }
@@ -84,17 +94,61 @@ export default function CreateUserForm({ roles }: Props) {
         />
       </div>
       <div>
+        <label style={{ fontSize: 14, fontWeight: 500 }}>CPF *</label>
+        <input
+          type="text"
+          value={form.cpf}
+          onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, "") })}
+          maxLength={11}
+          placeholder="00000000000"
+          required
+          style={inputStyle}
+        />
+        <span style={{ fontSize: 12, color: "#6b7280" }}>11 dígitos, apenas números</span>
+      </div>
+      <div>
+        <label style={{ fontSize: 14, fontWeight: 500 }}>Telefone *</label>
+        <input
+          type="tel"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          placeholder="+5561999999999"
+          required
+          style={inputStyle}
+        />
+        <span style={{ fontSize: 12, color: "#6b7280" }}>Formato: +5561999999999</span>
+      </div>
+      <div>
+        <label style={{ fontSize: 14, fontWeight: 500 }}>Data de Nascimento *</label>
+        <input
+          type="date"
+          value={form.birthDate}
+          onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+          max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]}
+          required
+          style={inputStyle}
+        />
+        <span style={{ fontSize: 12, color: "#6b7280" }}>Mínimo 18 anos</span>
+      </div>
+      <div>
         <label style={{ fontSize: 14, fontWeight: 500 }}>Perfil</label>
         <select
           value={form.role}
           onChange={(e) => setForm({ ...form, role: e.target.value })}
           style={{ ...inputStyle, appearance: "auto" }}
         >
-          {roles.map((role) => (
-            <option key={role} value={role}>
-              {role.toLowerCase()}
-            </option>
-          ))}
+          {roles
+            .sort((a, b) => {
+              // MODELO primeiro, depois ordem alfabética
+              if (a === "MODELO") return -1;
+              if (b === "MODELO") return 1;
+              return a.localeCompare(b);
+            })
+            .map((role) => (
+              <option key={role} value={role}>
+                {role.toLowerCase()}
+              </option>
+            ))}
         </select>
       </div>
       {error && <p style={{ color: "#b91c1c", fontSize: 14 }}>{error}</p>}
@@ -115,7 +169,9 @@ export default function CreateUserForm({ roles }: Props) {
         {loading ? "Criando..." : "Adicionar usuário"}
       </button>
       <p style={{ fontSize: 12, color: "#6b7280" }}>
-        * campos obrigatórios · as senhas criadas aqui podem ser trocadas pelo usuário em breve.
+        * Campos obrigatórios: Nome, Email, Senha, CPF, Telefone, Data de Nascimento.
+        <br />
+        As senhas criadas aqui podem ser trocadas pelo usuário em breve.
       </p>
     </form>
   );

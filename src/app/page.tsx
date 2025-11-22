@@ -1,180 +1,202 @@
 import { auth } from "@/auth";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import SessionTimer from "./components/SessionTimer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const session = await auth();
+export default async function HomePage(props: {
+  searchParams?: Promise<{ logout?: string }>;
+}) {
+  let session = null;
+  try {
+    session = await auth();
+  } catch (error: any) {
+    console.error("[HomePage] Erro ao obter sessão:", error);
+    // Continua sem sessão se houver erro
+  }
+  const params = props.searchParams ? await props.searchParams : {};
+
+  // Se há sessão, redirecionar para página apropriada
+  if (session) {
+    const userRole = (session.user as any)?.role;
+    if (userRole === "ARQUITETO") {
+      redirect("/arquiteto/ensaios");
+    } else if (userRole === "ADMIN") {
+      redirect("/admin/reports");
+    } else if (userRole === "MODELO") {
+      redirect("/modelo/ensaios");
+    } else if (userRole === "CLIENTE") {
+      redirect("/");
+    }
+  }
 
   return (
     <div
       style={{
-        minHeight: "calc(100vh - 80px)",
+        minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "sans-serif",
-        background: "#fafafa",
+        background: "linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)",
         padding: "2rem",
       }}
     >
       <div
         style={{
-          maxWidth: 800,
+          maxWidth: 600,
           width: "100%",
           textAlign: "center",
         }}
       >
-        <h1 style={{ fontSize: 48, marginBottom: 16, fontWeight: 700 }}>
-          TNA Studio
-        </h1>
-        <p style={{ fontSize: 20, marginBottom: 32, color: "#6b7280" }}>
-          Plataforma segura para conteúdo sensível
-        </p>
-
-        {session ? (
+        {params.logout === "success" && !session && (
           <div
             style={{
-              background: "white",
-              padding: "2rem",
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
               borderRadius: 12,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              marginTop: "2rem",
+              padding: "1rem",
+              marginBottom: "2rem",
+              color: "#065f46",
+              fontSize: 14,
             }}
           >
-            <h2 style={{ fontSize: 24, marginBottom: 16 }}>Bem-vindo!</h2>
-            <p style={{ fontSize: 16, marginBottom: 24, color: "#6b7280" }}>
-              Você está autenticado como {session.user?.email}
-            </p>
-
-            <SessionTimer />
-
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                justifyContent: "center",
-                flexWrap: "wrap",
-                marginTop: "1.5rem",
-              }}
-            >
-              {(session.user as any)?.role === "ADMIN" && (
-                <>
-                  <Link
-                    href="/admin/users"
-                    style={{
-                      display: "inline-block",
-                      background: "#111",
-                      color: "#fff",
-                      padding: "0.75rem 1.5rem",
-                      borderRadius: 8,
-                      textDecoration: "none",
-                      fontSize: 16,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Painel Admin
-                  </Link>
-                  <Link
-                    href="/admin/reports"
-                    style={{
-                      display: "inline-block",
-                      background: "#2563eb",
-                      color: "#fff",
-                      padding: "0.75rem 1.5rem",
-                      borderRadius: 8,
-                      textDecoration: "none",
-                      fontSize: 16,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Relatórios
-                  </Link>
-                </>
-              )}
-              <Link
-                href="/profile"
-                style={{
-                  display: "inline-block",
-                  background: "#059669",
-                  color: "#fff",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                  fontSize: 16,
-                  fontWeight: 500,
-                }}
-              >
-                Meus Dados
-              </Link>
-              <Link
-                href="/galleries"
-                style={{
-                  display: "inline-block",
-                  background: "#7c3aed",
-                  color: "#fff",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                  fontSize: 16,
-                  fontWeight: 500,
-                }}
-              >
-                Galerias
-              </Link>
-            </div>
+            Logout realizado com sucesso. Faça login novamente para continuar.
           </div>
-        ) : (
-          <Link
-            href="/signin"
-            style={{
-              display: "inline-block",
-              background: "#111",
-              color: "#fff",
-              padding: "1rem 2rem",
-              borderRadius: 8,
-              textDecoration: "none",
-              fontSize: 18,
-              fontWeight: 600,
-              marginTop: "2rem",
-            }}
-          >
-            Entrar
-          </Link>
         )}
 
         <div
           style={{
-            marginTop: "4rem",
-            padding: "2rem",
-            background: "#f9fafb",
-            borderRadius: 12,
-            textAlign: "left",
+            background: "white",
+            borderRadius: 16,
+            padding: "3rem 2.5rem",
+            boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+            marginBottom: "2rem",
           }}
         >
-          <h3 style={{ fontSize: 18, marginBottom: 12, fontWeight: 600 }}>
-            Segurança e Privacidade
-          </h3>
-          <ul
+          <h1 style={{ fontSize: 48, marginBottom: 12, fontWeight: 700, color: "#111827" }}>
+            TNA-Studio
+          </h1>
+          <p style={{ fontSize: 22, marginBottom: 40, color: "#6b7280", fontWeight: 400 }}>
+            Você como uma obra de arte
+          </p>
+          <p style={{ fontSize: 16, marginBottom: 48, color: "#9ca3af" }}>
+            Plataforma segura para conteúdo sensível
+          </p>
+
+          <div
             style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              color: "#6b7280",
-              fontSize: 14,
-              lineHeight: 1.8,
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+              marginBottom: "2rem",
             }}
           >
-            <li>✓ Autenticação obrigatória</li>
-            <li>✓ Conteúdo sem cache público</li>
-            <li>✓ URLs assinadas efêmeras</li>
-            <li>✓ Compliance LGPD/GDPR</li>
-            <li>✓ Auditoria completa de acessos</li>
-            <li>Este conteúdo é de acesso exclusivo dos clientes. @ todos os direitos reservados </li>
-          </ul>
+            <Link
+              href="/signin"
+              style={{
+                display: "inline-block",
+                background: "#111827",
+                color: "#fff",
+                padding: "1rem 2rem",
+                borderRadius: 10,
+                textDecoration: "none",
+                fontSize: 16,
+                fontWeight: 600,
+                transition: "all 0.2s",
+                border: "none",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#1f2937";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#111827";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              Entrar
+            </Link>
+
+            <Link
+              href="/modelo/signup"
+              style={{
+                display: "inline-block",
+                background: "transparent",
+                color: "#111827",
+                padding: "1rem 2rem",
+                borderRadius: 10,
+                textDecoration: "none",
+                fontSize: 16,
+                fontWeight: 600,
+                border: "2px solid #e5e7eb",
+                transition: "all 0.2s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#111827";
+                e.currentTarget.style.background = "#f9fafb";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e5e7eb";
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              Criar Conta (Modelo)
+            </Link>
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px solid #e5e7eb",
+              paddingTop: "1.5rem",
+              marginTop: "2rem",
+            }}
+          >
+            <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: "0.75rem" }}>
+              Funcionalidades em breve:
+            </p>
+            <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                disabled
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "#f3f4f6",
+                  color: "#9ca3af",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "not-allowed",
+                }}
+              >
+                Token Mágico
+              </button>
+              <button
+                disabled
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "#f3f4f6",
+                  color: "#9ca3af",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "not-allowed",
+                }}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -24,10 +24,14 @@ export default function SessionTimer() {
     }
 
     // Calcula tempo restante baseado em session.expires do servidor
+    // IMPORTANTE: session.expires vem do servidor (callback session em auth.ts)
+    // O servidor controla a expiração, não o cliente
+    // IMPORTANTE: session.expires é um timestamp fixo do servidor, não recalcula a cada render
+    const expiresAt = new Date(session.expires).getTime();
+    
     const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const expires = new Date(session.expires).getTime();
-      const diff = Math.max(0, Math.floor((expires - now) / 1000));
+      const clientNow = Date.now();
+      const diff = Math.max(0, Math.floor((expiresAt - clientNow) / 1000));
       return diff;
     };
 

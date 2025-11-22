@@ -60,40 +60,30 @@ export async function uploadToR2(key: string, body: Buffer, contentType: string)
 }
 
 /**
- * Gera URL assinada temporária para download seguro
+ * Gera URL assinada temporária para download seguro (R2)
  * 
- * Em desenvolvimento: usa rota local /api/media/serve/[photoId]
- * Em produção: usa URLs assinadas reais do R2 se configurado, senão retorna erro
+ * IMPORTANTE: URLs são efêmeras (30s-2min) e sempre protegidas por autenticação.
+ * NUNCA retorna a chave (key) em claro para o cliente, apenas a signed URL temporária.
+ * 
+ * @param key - Chave do objeto no R2 (ex: "ensaio-123/photo-01.jpg")
+ * @param expiresInSeconds - Tempo de expiração em segundos (padrão: 60s para URLs efêmeras)
+ * @returns URL assinada temporária que expira rapidamente
  */
-export async function getSignedUrl(key: string, expiresIn: number = 3600, photoId?: string): Promise<string> {
-  const isDevelopment = process.env.NODE_ENV === "development";
+export async function getSignedUrlForKey(
+  key: string, 
+  opts: { expiresInSeconds: number } = { expiresInSeconds: 60 }
+): Promise<string> {
+  const { expiresInSeconds } = opts;
   const hasR2Config = !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY);
 
-  // Em desenvolvimento, SEMPRE usa rota local (mesmo se R2 estiver configurado)
-  if (isDevelopment && photoId) {
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const localUrl = `${baseUrl}/api/media/serve/${photoId}`;
-    console.log(`[R2] Modo DEV: usando rota local para photoId=${photoId}`);
-    return localUrl;
-  }
-
-  // Em produção, R2 DEVE estar configurado
+  // Sempre requer R2 configurado (mesmo em dev, se estiver usando R2 real)
   if (!hasR2Config || !r2Client) {
-    const errorMsg = isDevelopment
-      ? `[R2] r2Client não configurado em dev. Usando mock.`
-      : `[R2] ERRO: r2Client não configurado em produção! Configure R2_ACCESS_KEY_ID e R2_SECRET_ACCESS_KEY.`;
-    
+    const errorMsg = `[R2] Storage não configurado. Configure R2_ACCESS_KEY_ID e R2_SECRET_ACCESS_KEY.`;
     console.error(errorMsg);
-    
-    if (!isDevelopment) {
-      throw new Error("Storage R2 não configurado em produção");
-    }
-    
-    // Em dev, retorna URL mock como fallback
-    return `https://mock-r2.example.com/${key}?expires=${Date.now() + expiresIn * 1000}`;
+    throw new Error("Storage R2 não configurado");
   }
 
-  // Produção: gera URL assinada real do R2
+  // Gera URL assinada real do R2 com expiração curta
   try {
     const { getSignedUrl: s3GetSignedUrl } = await import("@aws-sdk/s3-request-presigner");
     const command = new GetObjectCommand({
@@ -101,13 +91,29 @@ export async function getSignedUrl(key: string, expiresIn: number = 3600, photoI
       Key: key,
     });
 
-    const signedUrl = await s3GetSignedUrl(r2Client, command, { expiresIn });
-    console.log(`[R2] URL assinada gerada para key=${key.substring(0, 30)}... (expira em ${expiresIn}s)`);
+    // URLs efêmeras: máximo 2 minutos (120s), mínimo 30s
+    const safeExpiresIn = Math.min(Math.max(expiresInSeconds, 30), 120);
+    
+    const signedUrl = await s3GetSignedUrl(r2Client, command, { expiresIn: safeExpiresIn });
+    
+    // Log apenas em dev (nunca logar keys completas em produção)
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[R2] URL assinada gerada para key=${key.substring(0, 30)}... (expira em ${safeExpiresIn}s)`);
+    }
+    
     return signedUrl;
   } catch (error: any) {
     console.error(`[R2] Erro ao gerar URL assinada:`, error);
     throw new Error(`Falha ao gerar URL assinada: ${error.message}`);
   }
+}
+
+/**
+ * @deprecated Use getSignedUrlForKey() ao invés desta função
+ * Mantida apenas para compatibilidade com código antigo (Galleries)
+ */
+export async function getSignedUrl(key: string, expiresIn: number = 3600, photoId?: string): Promise<string> {
+  return getSignedUrlForKey(key, { expiresInSeconds: expiresIn });
 }
 
 /**

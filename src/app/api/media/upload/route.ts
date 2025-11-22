@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadToR2 } from "@/lib/r2";
 import { generateImageKey } from "@/lib/image-naming";
 import { Role } from "@prisma/client";
+import { canWriteOperation } from "@/lib/write-guard-arquiteto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,8 +128,30 @@ export async function POST(req: NextRequest) {
     }
 
     const userRole = (session.user as any).role as Role;
-    if (gallery.userId !== userId && userRole !== Role.ADMIN) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    
+    // Apenas ARQUITETO pode fazer upload
+    // Validar com guards de escrita (apenas ARQUITETO, com Certificado A1)
+    const operationId = `upload_photo_${galleryId}_${Date.now()}`;
+    const userAgent = req.headers.get("user-agent") || "unknown";
+    const guard = await canWriteOperation(
+      userId,
+      userRole,
+      "upload_photo",
+      operationId,
+      { galleryId, fileName: file.name, fileSize: file.size },
+      userIp,
+      userAgent
+    );
+
+    if (!guard.allowed) {
+      return NextResponse.json(
+        { 
+          error: guard.reason || "Operação bloqueada. Apenas ARQUITETO pode fazer upload de fotos.",
+          failedLayer: guard.failedLayer,
+          details: guard.details
+        },
+        { status: 403 }
+      );
     }
 
     // Gera key segura

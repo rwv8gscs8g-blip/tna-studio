@@ -21,7 +21,8 @@ export default function NewGalleryPage() {
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
-    const isPrivate = formData.get("isPrivate") === "true";
+    // Galerias são sempre privadas
+    const isPrivate = true;
 
     try {
       const res = await fetch("/api/galleries", {
@@ -60,11 +61,11 @@ export default function NewGalleryPage() {
           fontSize: 14,
         }}
       >
-        ← Voltar para galerias
+        ← Voltar para ensaios
       </Link>
 
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: "2rem" }}>
-        Nova Galeria
+        Novo Ensaio Fotográfico
       </h1>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.5rem" }}>
@@ -98,16 +99,25 @@ export default function NewGalleryPage() {
           />
         </label>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ 
+          padding: "1rem", 
+          background: "#f9fafb", 
+          borderRadius: 8, 
+          border: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          gap: 8
+        }}>
           <input
             type="checkbox"
-            name="isPrivate"
-            value="true"
-            defaultChecked
-            style={{ width: 18, height: 18 }}
+            checked
+            disabled
+            style={{ width: 18, height: 18, cursor: "not-allowed" }}
           />
-          <span style={{ fontSize: 14 }}>Galeria privada</span>
-        </label>
+          <span style={{ fontSize: 14, color: "#6b7280" }}>
+            🔒 Ensaio privado (obrigatório)
+          </span>
+        </div>
 
         {error && (
           <div style={{ color: "#b91c1c", fontSize: 14 }}>{error}</div>
@@ -128,7 +138,7 @@ export default function NewGalleryPage() {
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
-            {loading ? "Criando..." : "Criar Galeria"}
+            {loading ? "Criando..." : "Criar Ensaio"}
           </button>
           <Link
             href="/galleries"
