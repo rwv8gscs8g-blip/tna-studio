@@ -6,6 +6,21 @@ import { join } from "path";
 import forge from "node-forge";
 import { createHash } from "crypto";
 
+/**
+ * Guard de Proteção de Ambiente - Inline para evitar problemas de importação
+ * 
+ * Previne execução de seed em produção.
+ * Confia exclusivamente em NODE_ENV para determinar o ambiente.
+ */
+function ensureNotProduction(action: string): void {
+  if (process.env.NODE_ENV === "production") {
+    console.error(`❌ ERRO CRÍTICO: Ação '${action}' bloqueada em ambiente de PRODUÇÃO.`);
+    console.error(`   Esta operação é permitida apenas em desenvolvimento.`);
+    console.error(`   NODE_ENV atual: ${process.env.NODE_ENV}`);
+    process.exit(1);
+  }
+}
+
 const prisma = new PrismaClient();
 
 /**
@@ -84,6 +99,9 @@ async function readAndValidateCertificate(
 }
 
 async function main() {
+  // Proteção crítica: seed NUNCA deve rodar em produção
+  ensureNotProduction("Database Seed");
+  
   console.log("🌱 Iniciando seed de usuários...");
   console.log("📋 Criando usuários de teste\n");
 

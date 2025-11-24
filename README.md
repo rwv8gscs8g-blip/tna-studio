@@ -61,7 +61,10 @@ npm install
 Crie `.env.local` na raiz (copie de `.env.local.example`):
 
 ```env
-# Banco de dados (OBRIGATÓRIO - banco único Neon para localhost e produção)
+# Banco de dados (OBRIGATÓRIO)
+# IMPORTANTE: Use bancos separados para DEV e PROD
+# - Desenvolvimento local: banco Neon DEV separado
+# - Produção (Vercel): banco Neon PROD (configurado via variáveis de ambiente do Vercel)
 DATABASE_URL="postgresql://user:pass@host:port/database?sslmode=require"
 DIRECT_URL="postgresql://user:pass@host:port/database?sslmode=require"
 
@@ -96,21 +99,64 @@ EMAIL_TO_AUDIT="token@zanin.art.br"
 WHATSAPP_TO_AUDIT="[redacted-phone]"
 ```
 
+### 3. Configuração de Banco de Dados
+
+**⚠️ CRÍTICO: Separação de Ambientes**
+
+O TNA-Studio requer **bancos de dados separados** para desenvolvimento e produção:
+
+- **Desenvolvimento Local:**
+  - Crie um banco Neon separado para desenvolvimento
+  - Configure `DATABASE_URL` e `DIRECT_URL` no `.env.local` apontando para este banco DEV
+  - Este banco pode ser resetado, populado com seed, e usado para testes sem risco
+
+- **Produção (Vercel):**
+  - Use um banco Neon **diferente** para produção
+  - Configure `DATABASE_URL` e `DIRECT_URL` nas variáveis de ambiente do Vercel
+  - **NUNCA** execute `npm run seed` em produção (proteção automática implementada)
+  - **NUNCA** execute `npx prisma migrate reset` em produção
+
+**Proteções Implementadas:**
+- ✅ Seed bloqueado automaticamente em `NODE_ENV=production`
+- ✅ Operações destrutivas protegidas por `env-guard.ts`
+- ✅ Validação de ambiente antes de operações críticas
+
 **Gerar NEXTAUTH_SECRET:**
 ```bash
 openssl rand -base64 32
 ```
 
-### 3. Configurar Banco de Dados
+### 3.1. Configuração de Banco de Dados
 
+**⚠️ CRÍTICO: Separação de Ambientes**
+
+O TNA-Studio requer **bancos de dados separados** para desenvolvimento e produção:
+
+- **Desenvolvimento Local:**
+  - Crie um banco Neon separado para desenvolvimento
+  - Configure `DATABASE_URL` e `DIRECT_URL` no `.env.local` apontando para este banco DEV
+  - Este banco pode ser resetado, populado com seed, e usado para testes sem risco
+
+- **Produção (Vercel):**
+  - Use um banco Neon **diferente** para produção
+  - Configure `DATABASE_URL` e `DIRECT_URL` nas variáveis de ambiente do Vercel
+  - **NUNCA** execute `npm run seed` em produção (proteção automática implementada)
+  - **NUNCA** execute `npx prisma migrate reset` em produção
+
+**Proteções Implementadas:**
+- ✅ Seed bloqueado automaticamente em `NODE_ENV=production`
+- ✅ Operações destrutivas protegidas por `env-guard.ts`
+- ✅ Validação de ambiente antes de operações críticas
+
+**Comandos para Desenvolvimento:**
 ```bash
-# Rodar migrations (banco único Neon)
+# Rodar migrations (banco DEV)
 npx prisma migrate deploy
 
 # Gerar Prisma Client
 npx prisma generate
 
-# Criar usuários de teste (inclui SUPER_ADMIN)
+# Criar usuários de teste (inclui SUPER_ADMIN) - APENAS EM DEV
 npm run seed
 ```
 

@@ -313,7 +313,7 @@ model EnsaioProjeto {
 
 model Produto {
   id            String           @id @default(cuid())
-  nome          String
+  nome          String           @unique
   descricao     String?
   preco         Float
   categoria     String? // Ex: "Pacote", "Promoção", "TFP"
