@@ -108,14 +108,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar se email já existe
-    const existing = await prisma.user.findUnique({ where: { email } });
+    // Verificar se email já existe (apenas não deletados)
+    const existing = await prisma.user.findFirst({ 
+      where: { 
+        email,
+        deletedAt: null, // Apenas usuários não deletados
+      },
+    });
     if (existing) {
       return NextResponse.json({ error: "Email já cadastrado." }, { status: 409 });
     }
 
-    // Verificar CPF único (já normalizado acima)
-    const existingCpf = await prisma.user.findUnique({ where: { cpf } });
+    // Verificar CPF único (já normalizado acima, apenas não deletados)
+    const existingCpf = await prisma.user.findFirst({ 
+      where: { 
+        cpf,
+        deletedAt: null, // Apenas usuários não deletados
+      },
+    });
     if (existingCpf) {
       return NextResponse.json({ error: "CPF já cadastrado para outro usuário." }, { status: 409 });
     }

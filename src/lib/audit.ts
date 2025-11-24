@@ -83,9 +83,9 @@ export async function logAction(context: AuditContext): Promise<void> {
     const errorMessage = `Falha ao registrar auditoria: ${error.message}`;
     
     if (process.env.NODE_ENV === 'production') {
-      // Em produção: fail-closed - lançar exceção
+      // Em produção: fail-closed - lançar exceção (relançar o erro original)
       console.error(`[AUDIT] ${errorMessage}`, error);
-      throw new Error(errorMessage);
+      throw error; // Relançar o erro original, não criar um novo
     } else {
       // Em desenvolvimento: apenas logar
       console.warn(`[AUDIT] ${errorMessage}`, error);

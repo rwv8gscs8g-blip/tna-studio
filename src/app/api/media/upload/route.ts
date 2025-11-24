@@ -118,9 +118,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Valida que a galeria pertence ao usuário ou é ADMIN
-    const gallery = await prisma.gallery.findUnique({
-      where: { id: galleryId },
+    // Valida que a galeria pertence ao usuário ou é ADMIN (apenas não deletadas)
+    const gallery = await prisma.gallery.findFirst({
+      where: { 
+        id: galleryId,
+        deletedAt: null, // Apenas galerias não deletadas
+      },
     });
 
     if (!gallery) {
