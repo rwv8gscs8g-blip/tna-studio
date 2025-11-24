@@ -29,8 +29,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Buscar todos os usuários (até 30 para relatórios)
+    // Buscar todos os usuários (até 30 para relatórios) - apenas não deletados
     const users = await prisma.user.findMany({
+      where: { deletedAt: null }, // Apenas usuários não deletados
       orderBy: { createdAt: "desc" },
       take: 30,
       select: {
@@ -44,13 +45,13 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Calcular contadores (não somar duplicado, cada usuário conta uma vez)
-    const totalUsers = await prisma.user.count();
-    const arquitetoCount = await prisma.user.count({ where: { role: Role.ARQUITETO } });
-    const adminCount = await prisma.user.count({ where: { role: Role.ADMIN } });
-    const modeloCount = await prisma.user.count({ where: { role: Role.MODELO } });
-    const clienteCount = await prisma.user.count({ where: { role: Role.CLIENTE } });
-    const superAdminCount = await prisma.user.count({ where: { role: Role.SUPERADMIN } });
+    // Calcular contadores (apenas não deletados)
+    const totalUsers = await prisma.user.count({ where: { deletedAt: null } });
+    const arquitetoCount = await prisma.user.count({ where: { role: Role.ARQUITETO, deletedAt: null } });
+    const adminCount = await prisma.user.count({ where: { role: Role.ADMIN, deletedAt: null } });
+    const modeloCount = await prisma.user.count({ where: { role: Role.MODELO, deletedAt: null } });
+    const clienteCount = await prisma.user.count({ where: { role: Role.CLIENTE, deletedAt: null } });
+    const superAdminCount = await prisma.user.count({ where: { role: Role.SUPERADMIN, deletedAt: null } });
 
     return NextResponse.json({ 
       users,

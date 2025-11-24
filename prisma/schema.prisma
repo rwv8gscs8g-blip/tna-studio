@@ -23,7 +23,7 @@ model AdminCertificate {
   createdAt                             DateTime  @default(now())
   updatedAt                             DateTime  @updatedAt
   User_AdminCertificate_createdByToUser User      @relation("AdminCertificate_createdByToUser", fields: [createdBy], references: [id])
-  User_AdminCertificate_userIdToUser    User      @relation("AdminCertificate_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+  User_AdminCertificate_userIdToUser    User      @relation("AdminCertificate_userIdToUser", fields: [userId], references: [id])
 
   @@index([isActive])
   @@index([serialNumber])
@@ -40,7 +40,7 @@ model AdminMessage {
   createdBy    String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  User         User?    @relation(fields: [targetUserId], references: [id], onDelete: Cascade)
+  User         User?    @relation(fields: [targetUserId], references: [id])
 
   @@index([createdAt])
   @@index([targetUserId])
@@ -61,7 +61,7 @@ model AdminOperation {
   success           Boolean  @default(true)
   errorMessage      String?
   createdAt         DateTime @default(now())
-  User              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User              User     @relation(fields: [userId], references: [id])
 
   @@index([certificateSerial])
   @@index([createdAt])
@@ -76,7 +76,7 @@ model ArquitetoSession {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   expiresAt DateTime
-  user      User     @relation("ArquitetoSession", fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation("ArquitetoSession", fields: [userId], references: [id])
 
   @@index([userId])
   @@index([sessionId])
@@ -96,26 +96,19 @@ model AppConfig {
 }
 
 model AuditLog {
-  id           String   @id @default(cuid())
-  userId       String?
-  email        String
-  role         Role?
-  ip           String
-  userAgent    String
-  country      String?
-  city         String?
-  method       String
-  action       String
-  sessionTime  Int?
-  success      Boolean  @default(true)
-  errorMessage String?
-  createdAt    DateTime @default(now())
-  User         User?    @relation(fields: [userId], references: [id])
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String
+  actorId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
 
   @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([actorId])
   @@index([createdAt])
-  @@index([email])
-  @@index([userId])
 }
 
 model Gallery {
@@ -126,6 +119,7 @@ model Gallery {
   isPrivate      Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
   ownerCpf       String?
   ownerPassport  String?
   sessionDate    DateTime?
@@ -141,6 +135,7 @@ model Gallery {
   @@index([ownerPassport])
   @@index([sessionDate])
   @@index([userId])
+  @@index([deletedAt])
 }
 
 model GalleryAccess {
@@ -150,11 +145,13 @@ model GalleryAccess {
   canDownload Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  Gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
-  User        User     @relation(fields: [granteeId], references: [id], onDelete: Cascade)
+  deletedAt   DateTime?
+  Gallery     Gallery  @relation(fields: [galleryId], references: [id])
+  User        User     @relation(fields: [granteeId], references: [id])
 
   @@unique([galleryId, granteeId])
   @@index([granteeId])
+  @@index([deletedAt])
 }
 
 model ImageRights {
@@ -168,10 +165,12 @@ model ImageRights {
   metadata       String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
   User           User      @relation(fields: [ownerId], references: [id])
-  Photo          Photo     @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  Photo          Photo     @relation(fields: [photoId], references: [id])
 
   @@index([ownerId])
+  @@index([deletedAt])
 }
 
 model OtpToken {
@@ -204,13 +203,15 @@ model Photo {
   isSensitive Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
   hash        String?
   ImageRights ImageRights?
-  Gallery     Gallery      @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  Gallery     Gallery      @relation(fields: [galleryId], references: [id])
 
   @@index([galleryId])
   @@index([hash])
   @@index([key])
+  @@index([deletedAt])
 }
 
 model TermDocument {
@@ -221,10 +222,12 @@ model TermDocument {
   bytes      Int
   uploadedBy String
   createdAt  DateTime @default(now())
-  Gallery    Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  deletedAt  DateTime?
+  Gallery    Gallery  @relation(fields: [galleryId], references: [id])
 
   @@index([galleryId])
   @@index([uploadedBy])
+  @@index([deletedAt])
 }
 
 enum EnsaioStatus {
@@ -247,8 +250,9 @@ model Ensaio {
   d4signDocumentId String? // ID do documento no D4Sign (para integração futura) - nullable
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-  createdBy        User            @relation("EnsaioCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
-  subject          User            @relation("EnsaiosPorCpf", fields: [subjectCpf], references: [cpf], onDelete: Cascade)
+  deletedAt        DateTime?
+  createdBy        User            @relation("EnsaioCreatedBy", fields: [createdById], references: [id])
+  subject          User            @relation("EnsaiosPorCpf", fields: [subjectCpf], references: [cpf])
   photos           EnsaioPhoto[] // Lista das melhores fotos do ensaio (até 30 fotos)
   projetos         EnsaioProjeto[] // Relação muitos-para-muitos com Projeto
   produtos         EnsaioProduto[] // Relação muitos-para-muitos com Produto
@@ -258,19 +262,22 @@ model Ensaio {
   @@index([slug])
   @@index([status])
   @@index([shootDate])
+  @@index([deletedAt])
 }
 
 model EnsaioPhoto {
   id         String   @id @default(cuid())
   ensaioId   String
-  ensaio     Ensaio   @relation(fields: [ensaioId], references: [id], onDelete: Cascade)
+  ensaio     Ensaio   @relation(fields: [ensaioId], references: [id])
   storageKey String // Chave R2 da foto (ex: ensaio-123/photo-01.jpg) - nunca URL pública, sempre gerar signed URL
   sortOrder  Int      @default(0) // Ordem de exibição (0 = primeiro, usado para ordenar as melhores fotos)
   createdAt  DateTime @default(now())
+  deletedAt  DateTime?
 
   @@index([ensaioId])
   @@index([sortOrder])
   @@index([storageKey])
+  @@index([deletedAt])
 }
 
 model Projeto {
@@ -281,23 +288,27 @@ model Projeto {
   active      Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
   ensaios     EnsaioProjeto[] // Relação muitos-para-muitos com Ensaio
 
   @@index([slug])
   @@index([active])
+  @@index([deletedAt])
 }
 
 model EnsaioProjeto {
   id        String   @id @default(cuid())
   ensaioId  String
   projetoId String
-  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id], onDelete: Cascade)
-  projeto   Projeto  @relation(fields: [projetoId], references: [id], onDelete: Cascade)
+  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id])
+  projeto   Projeto  @relation(fields: [projetoId], references: [id])
   createdAt DateTime @default(now())
+  deletedAt DateTime?
 
   @@unique([ensaioId, projetoId])
   @@index([ensaioId])
   @@index([projetoId])
+  @@index([deletedAt])
 }
 
 model Produto {
@@ -311,6 +322,7 @@ model Produto {
   coverImageKey String? // Chave R2 da foto principal do produto
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
   ensaios       EnsaioProduto[] // Relação muitos-para-muitos com Ensaio
   photos        ProdutoPhoto[] // Mini galeria do produto (5 fotos máx)
   intencoes     IntencaoCompra[] // Intenções de compra das modelos
@@ -318,31 +330,36 @@ model Produto {
   @@index([categoria])
   @@index([isPromocao])
   @@index([isTfp])
+  @@index([deletedAt])
 }
 
 model ProdutoPhoto {
   id         String   @id @default(cuid())
   produtoId  String
-  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  produto    Produto  @relation(fields: [produtoId], references: [id])
   storageKey String // Chave R2 da foto (ex: produto-123/photo-01.jpg) - nunca URL pública
   sortOrder  Int      @default(0) // Ordem de exibição (0 = primeiro)
   createdAt  DateTime @default(now())
+  deletedAt  DateTime?
 
   @@index([produtoId])
   @@index([sortOrder])
+  @@index([deletedAt])
 }
 
 model EnsaioProduto {
   id        String   @id @default(cuid())
   ensaioId  String
   produtoId String
-  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id], onDelete: Cascade)
-  produto   Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id])
+  produto   Produto  @relation(fields: [produtoId], references: [id])
   createdAt DateTime @default(now())
+  deletedAt DateTime?
 
   @@unique([ensaioId, produtoId])
   @@index([ensaioId])
   @@index([produtoId])
+  @@index([deletedAt])
 }
 
 model IntencaoCompra {
@@ -350,14 +367,16 @@ model IntencaoCompra {
   modeloId  String
   produtoId String
   status    String   @default("PENDENTE") // "PENDENTE" | "APROVADA" | "REJEITADA" | "CONCLUIDA"
-  produto   Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
-  modelo    User     @relation("IntencoesCompra", fields: [modeloId], references: [id], onDelete: Cascade)
+  produto   Produto  @relation(fields: [produtoId], references: [id])
+  modelo    User     @relation("IntencoesCompra", fields: [modeloId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@index([modeloId])
   @@index([produtoId])
   @@index([status])
+  @@index([deletedAt])
 }
 
 model User {
@@ -368,6 +387,7 @@ model User {
   role                                              Role               @default(MODELO)
   createdAt                                         DateTime           @default(now())
   updatedAt                                         DateTime           @updatedAt
+  deletedAt                                         DateTime?
   acceptedAt                                        DateTime?
   address                                           String?
   adminMessage                                      String?
@@ -390,7 +410,6 @@ model User {
   AdminMessage                                      AdminMessage[]
   AdminOperation                                    AdminOperation[]
   ArquitetoSession                                  ArquitetoSession[] @relation("ArquitetoSession")
-  AuditLog                                          AuditLog[]
   Ensaio                                            Ensaio[]           @relation("EnsaioCreatedBy")
   EnsaiosPorCpf                                     Ensaio[]           @relation("EnsaiosPorCpf")
   Gallery                                           Gallery[]
@@ -401,6 +420,7 @@ model User {
 
   @@index([email])
   @@index([phone])
+  @@index([deletedAt])
 }
 
 enum Role {

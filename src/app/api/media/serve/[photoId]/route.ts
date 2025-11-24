@@ -34,15 +34,24 @@ export async function GET(
     }
     const userRole = (session.user as any).role as Role;
 
-    // Valida permissões
-    const accessCheck = await canAccessPhoto(userId, userRole, photoId);
+    // Capturar contexto de auditoria
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+               req.headers.get("x-real-ip") ||
+               "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
+    // Valida permissões com contexto de auditoria
+    const accessCheck = await canAccessPhoto(userId, userRole, photoId, { ip, userAgent });
     if (!accessCheck.allowed) {
       return NextResponse.json({ error: accessCheck.reason || "Acesso negado" }, { status: 403 });
     }
 
-    // Busca a foto
-    const photo = await prisma.photo.findUnique({
-      where: { id: photoId },
+    // Busca a foto (apenas não deletadas)
+    const photo = await prisma.photo.findFirst({
+      where: { 
+        id: photoId,
+        deletedAt: null, // Apenas fotos não deletadas
+      },
       select: { key: true, mimeType: true },
     });
 

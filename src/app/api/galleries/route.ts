@@ -33,9 +33,10 @@ export async function GET(req: NextRequest) {
     let galleries;
 
     // ARQUITETO e ADMIN podem ver todas as galerias (leitura)
-    if (userRole === Role.ARQUITETO || userRole === Role.ADMIN || userRole === Role.SUPER_ADMIN) {
-      // Admin vê todas as galerias
+    if (userRole === Role.ARQUITETO || userRole === Role.ADMIN || userRole === Role.SUPERADMIN) {
+      // Admin vê todas as galerias (apenas não deletadas)
       galleries = await prisma.gallery.findMany({
+        where: { deletedAt: null }, // Apenas galerias não deletadas
         select: {
           id: true,
           title: true,
@@ -46,17 +47,21 @@ export async function GET(req: NextRequest) {
           updatedAt: true,
           // Não buscar ownerCpf, ownerPassport, sessionDate se não existirem
           User: {
+            where: { deletedAt: null }, // Apenas usuários não deletados
             select: { id: true, name: true, email: true },
           },
         },
         orderBy: { createdAt: "desc" },
       });
       
-      // Adiciona _count para cada galeria
+      // Adiciona _count para cada galeria (apenas fotos não deletadas)
       galleries = await Promise.all(
         galleries.map(async (gallery) => {
           const photoCount = await prisma.photo.count({
-            where: { galleryId: gallery.id },
+            where: { 
+              galleryId: gallery.id,
+              deletedAt: null, // Apenas fotos não deletadas
+            },
           });
           return {
             ...gallery,
@@ -65,9 +70,12 @@ export async function GET(req: NextRequest) {
         })
       );
     } else {
-      // Usuário vê suas próprias galerias + galerias com acesso concedido
+      // Usuário vê suas próprias galerias + galerias com acesso concedido (apenas não deletadas)
       const owned = await prisma.gallery.findMany({
-        where: { userId },
+        where: { 
+          userId,
+          deletedAt: null, // Apenas galerias não deletadas
+        },
         select: {
           id: true,
           title: true,
@@ -85,11 +93,16 @@ export async function GET(req: NextRequest) {
       });
 
       const accessed = await prisma.galleryAccess.findMany({
-        where: { granteeId: userId },
+        where: { 
+          granteeId: userId,
+          deletedAt: null, // Apenas acessos não deletados
+        },
         include: {
           Gallery: {
+            where: { deletedAt: null }, // Apenas galerias não deletadas
             include: {
               User: {
+                where: { deletedAt: null }, // Apenas usuários não deletados
                 select: { id: true, name: true, email: true },
               },
               _count: {

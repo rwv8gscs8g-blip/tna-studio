@@ -71,9 +71,9 @@ CREATE INDEX IF NOT EXISTS "IntencaoCompra_status_idx" ON "IntencaoCompra"("stat
 CREATE UNIQUE INDEX IF NOT EXISTS "EnsaioProduto_ensaioId_produtoId_key" ON "EnsaioProduto"("ensaioId", "produtoId");
 
 -- AddForeignKey
-ALTER TABLE "ProdutoPhoto" ADD CONSTRAINT IF NOT EXISTS "ProdutoPhoto_produtoId_fkey" FOREIGN KEY ("produtoId") REFERENCES "Produto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "EnsaioProduto" ADD CONSTRAINT IF NOT EXISTS "EnsaioProduto_ensaioId_fkey" FOREIGN KEY ("ensaioId") REFERENCES "Ensaio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "EnsaioProduto" ADD CONSTRAINT IF NOT EXISTS "EnsaioProduto_produtoId_fkey" FOREIGN KEY ("produtoId") REFERENCES "Produto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "IntencaoCompra" ADD CONSTRAINT IF NOT EXISTS "IntencaoCompra_modeloId_fkey" FOREIGN KEY ("modeloId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "IntencaoCompra" ADD CONSTRAINT IF NOT EXISTS "IntencaoCompra_produtoId_fkey" FOREIGN KEY ("produtoId") REFERENCES "Produto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ProdutoPhoto" ADD CONSTRAINT "ProdutoPhoto_produtoId_fkey" FOREIGN KEY ("produtoId") REFERENCES "Produto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EnsaioProduto" ADD CONSTRAINT "EnsaioProduto_ensaioId_fkey" FOREIGN KEY ("ensaioId") REFERENCES "Ensaio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EnsaioProduto" ADD CONSTRAINT "EnsaioProduto_produtoId_fkey" FOREIGN KEY ("produtoId") REFERENCES "Produto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "IntencaoCompra" ADD CONSTRAINT "IntencaoCompra_modeloId_fkey" FOREIGN KEY ("modeloId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "IntencaoCompra" ADD CONSTRAINT "IntencaoCompra_produtoId_fkey" FOREIGN KEY ("produtoId") REFERENCES "Produto"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

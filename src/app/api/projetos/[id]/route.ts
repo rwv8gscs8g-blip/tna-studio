@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { logDeleteAction } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +27,10 @@ export async function GET(
     const { id } = await params;
 
     const projeto = await prisma.projeto.findUnique({
-      where: { id },
+      where: { 
+        id,
+        deletedAt: null, // Apenas projetos não deletados
+      },
       include: {
         _count: {
           select: {
@@ -103,9 +107,17 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const userId = (session.user as any)?.id;
 
-    await prisma.projeto.delete({
+    // Soft delete
+    await prisma.projeto.update({
       where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    // Registrar auditoria
+    await logDeleteAction(userId, "Projeto", id, {
+      name: (await prisma.projeto.findUnique({ where: { id }, select: { name: true } }))?.name,
     });
 
     return NextResponse.json({ message: "Projeto excluído com sucesso" }, { status: 200 });

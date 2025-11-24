@@ -378,8 +378,17 @@ export async function DELETE(
       );
     }
 
-    // Se passou pelos guards, deletar usuário
-    await prisma.user.delete({ where: { id } });
+    // Soft delete
+    await prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    // Registrar auditoria
+    await logDeleteAction(userId, "User", id, {
+      email: existing.email,
+      role: existing.role,
+    });
 
     return NextResponse.json({ ok: true, message: "Usuário deletado com sucesso" });
   } catch (error: any) {

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Role, EnsaioStatus } from "@prisma/client";
+import { Role } from "@prisma/client";
 import { deleteFromR2 } from "@/lib/r2";
+import { logAction } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,17 +37,19 @@ export async function POST(req: NextRequest) {
     const seteDiasAtras = new Date();
     seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
 
-    // Buscar ensaios deletados há mais de 7 dias
+    // Buscar ensaios deletados há mais de 7 dias (soft delete via deletedAt)
     const ensaiosDeletados = await prisma.ensaio.findMany({
       where: {
         createdById: userId,
-        status: EnsaioStatus.DELETED,
-        updatedAt: {
-          lte: seteDiasAtras,
+        deletedAt: {
+          not: null, // Tem deletedAt
+          lte: seteDiasAtras, // Deletado há mais de 7 dias
         },
       },
       include: {
-        photos: true,
+        photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas ainda
+        },
       },
     });
 
@@ -98,16 +101,15 @@ export async function POST(req: NextRequest) {
 
     // Registrar em AuditLog
     try {
-      await prisma.auditLog.create({
-        data: {
-          userId,
-          email: (session.user as any)?.email || "unknown",
-          role: userRole,
-          ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown",
-          userAgent: req.headers.get("user-agent") || "unknown",
-          method: "POST",
-          action: "cleanup_deleted_ensaios",
-          success: true,
+      await logAction({
+        actorId: userId,
+        action: "CLEANUP_DELETED_ENSAIOS",
+        entity: "Ensaio",
+        entityId: `batch_${ensaiosDeletados.length}`,
+        metadata: {
+          count: count,
+          fotosDeletadas,
+          ensaiosIds: ensaiosDeletados.map((e) => e.id),
         },
       });
     } catch (auditError) {

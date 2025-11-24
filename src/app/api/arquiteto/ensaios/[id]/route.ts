@@ -38,11 +38,15 @@ export async function GET(
 
     const { id } = await params;
 
-    // Buscar ensaio com todas as informações
-    const ensaio = await prisma.ensaio.findUnique({
-      where: { id },
+    // Buscar ensaio com todas as informações (apenas não deletados)
+    const ensaio = await prisma.ensaio.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
       include: {
         createdBy: {
+          where: { deletedAt: null }, // Apenas usuários não deletados
           select: {
             id: true,
             name: true,
@@ -50,6 +54,7 @@ export async function GET(
           },
         },
         subject: {
+          where: { deletedAt: null }, // Apenas usuários não deletados
           select: {
             id: true,
             name: true,
@@ -59,6 +64,7 @@ export async function GET(
           },
         },
         photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
           orderBy: [
             { sortOrder: "asc" },
             { createdAt: "desc" },
@@ -143,9 +149,12 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    // Verificar se o ensaio existe e pertence ao ARQUITETO
-    const existingEnsaio = await prisma.ensaio.findUnique({
-      where: { id },
+    // Verificar se o ensaio existe e pertence ao ARQUITETO (apenas não deletados)
+    const existingEnsaio = await prisma.ensaio.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
       select: { createdById: true },
     });
 

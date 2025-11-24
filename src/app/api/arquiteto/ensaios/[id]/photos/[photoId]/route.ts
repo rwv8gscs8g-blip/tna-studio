@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isArquitetoSessionReadOnly } from "@/lib/arquiteto-session";
 import { Role } from "@prisma/client";
+import { logDeleteAction } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,9 +91,16 @@ export async function DELETE(
       );
     }
 
-    // Remover foto
-    await prisma.ensaioPhoto.delete({
+    // Soft delete
+    await prisma.ensaioPhoto.update({
       where: { id: photoId },
+      data: { deletedAt: new Date() },
+    });
+
+    // Registrar auditoria
+    await logDeleteAction(userId, "EnsaioPhoto", photoId, {
+      ensaioId: id,
+      storageKey: photo.storageKey,
     });
 
     return NextResponse.json(

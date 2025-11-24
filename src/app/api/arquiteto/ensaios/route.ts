@@ -89,9 +89,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Buscar usuário com este CPF
-    const subjectUser = await prisma.user.findUnique({
-      where: { cpf: normalizedCpf },
+    // Buscar usuário com este CPF (apenas não deletados)
+    const subjectUser = await prisma.user.findFirst({
+      where: { 
+        cpf: normalizedCpf,
+        deletedAt: null, // Apenas usuários não deletados
+      },
       select: { id: true, role: true, name: true },
     });
 

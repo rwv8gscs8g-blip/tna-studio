@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { logDeleteAction } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,9 +27,13 @@ export async function GET(
     const { id } = await params;
 
     const produto = await prisma.produto.findUnique({
-      where: { id },
+      where: { 
+        id,
+        deletedAt: null, // Apenas produtos não deletados
+      },
       include: {
         photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
           orderBy: { sortOrder: "asc" },
         },
         _count: {
@@ -111,9 +116,17 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const userId = (session.user as any)?.id;
 
-    await prisma.produto.delete({
+    // Soft delete
+    await prisma.produto.update({
       where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    // Registrar auditoria
+    await logDeleteAction(userId, "Produto", id, {
+      nome: (await prisma.produto.findUnique({ where: { id }, select: { nome: true } }))?.nome,
     });
 
     return NextResponse.json({ message: "Produto excluído com sucesso" }, { status: 200 });

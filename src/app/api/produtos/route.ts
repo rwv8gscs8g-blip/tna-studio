@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
     const promocao = searchParams.get("promocao") === "true";
     const tfp = searchParams.get("tfp") === "true";
 
-    const where: any = {};
+    const where: any = {
+      deletedAt: null, // Apenas produtos não deletados
+    };
     if (categoria) where.categoria = categoria;
     if (promocao) where.isPromocao = true;
     if (tfp) where.isTfp = true;
@@ -32,6 +34,9 @@ export async function GET(req: NextRequest) {
     const produtos = await prisma.produto.findMany({
       where,
       include: {
+        photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
+        },
         _count: {
           select: {
             ensaios: true,

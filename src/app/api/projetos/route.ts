@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
     const activeOnly = searchParams.get("active") === "true";
 
     const projetos = await prisma.projeto.findMany({
-      where: activeOnly ? { active: true } : undefined,
+      where: {
+        deletedAt: null, // Apenas projetos não deletados
+        ...(activeOnly ? { active: true } : {}),
+      },
       select: {
         id: true,
         name: true,

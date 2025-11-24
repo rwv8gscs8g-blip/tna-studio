@@ -44,9 +44,12 @@ export async function GET(
 
     const { id } = await params;
 
-    // Buscar CPF da MODELO logada
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    // Buscar CPF da MODELO logada (apenas não deletados)
+    const user = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        deletedAt: null, // Apenas usuários não deletados
+      },
       select: { cpf: true },
     });
 
@@ -57,11 +60,15 @@ export async function GET(
       );
     }
 
-    // Buscar ensaio
-    const ensaio = await prisma.ensaio.findUnique({
-      where: { id },
+    // Buscar ensaio (apenas não deletados)
+    const ensaio = await prisma.ensaio.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
       include: {
         photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
           orderBy: [
             { sortOrder: "asc" },
             { createdAt: "desc" },

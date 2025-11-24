@@ -7,10 +7,16 @@
 
 import { Role } from "@prisma/client";
 import { prisma } from "./prisma";
+import { logAdminAccess } from "./audit";
 
 export interface AccessCheckResult {
   allowed: boolean;
   reason?: string;
+}
+
+export interface AuditContext {
+  ip?: string;
+  userAgent?: string;
 }
 
 /**
@@ -19,10 +25,32 @@ export interface AccessCheckResult {
 export async function canAccessPhoto(
   userId: string,
   userRole: Role | string,
-  photoId: string
+  photoId: string,
+  auditContext?: AuditContext
 ): Promise<AccessCheckResult> {
   // ADMIN sempre tem acesso (compara tanto enum quanto string)
   if (userRole === Role.ADMIN || userRole === "ADMIN") {
+    // Verificar se o recurso pertence a outro usuário e registrar auditoria
+    const photo = await prisma.photo.findUnique({
+      where: { id: photoId },
+      include: {
+        Gallery: {
+          include: {
+            User: true,
+          },
+        },
+      },
+    });
+
+    if (photo && photo.Gallery.userId && photo.Gallery.userId !== userId) {
+      // ADMIN acessando recurso de outro usuário - registrar auditoria
+      await logAdminAccess(userId, 'Photo', photoId, {
+        resourceOwnerId: photo.Gallery.userId,
+        ip: auditContext?.ip,
+        userAgent: auditContext?.userAgent,
+      });
+    }
+
     return { allowed: true };
   }
 
@@ -93,10 +121,28 @@ export async function canAccessPhoto(
 export async function canAccessGallery(
   userId: string,
   userRole: Role | string,
-  galleryId: string
+  galleryId: string,
+  auditContext?: AuditContext
 ): Promise<AccessCheckResult> {
   // ADMIN sempre tem acesso (compara tanto enum quanto string)
   if (userRole === Role.ADMIN || userRole === "ADMIN") {
+    // Verificar se o recurso pertence a outro usuário e registrar auditoria
+    const gallery = await prisma.gallery.findUnique({
+      where: { id: galleryId },
+      include: {
+        User: true,
+      },
+    });
+
+    if (gallery && gallery.userId && gallery.userId !== userId) {
+      // ADMIN acessando recurso de outro usuário - registrar auditoria
+      await logAdminAccess(userId, 'Gallery', galleryId, {
+        resourceOwnerId: gallery.userId,
+        ip: auditContext?.ip,
+        userAgent: auditContext?.userAgent,
+      });
+    }
+
     return { allowed: true };
   }
 

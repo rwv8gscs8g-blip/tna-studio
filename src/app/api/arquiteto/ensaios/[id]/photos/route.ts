@@ -66,13 +66,17 @@ export async function POST(
       );
     }
 
-    // Verificar se o ensaio existe e pertence ao ARQUITETO
-    const ensaio = await prisma.ensaio.findUnique({
-      where: { id },
+    // Verificar se o ensaio existe e pertence ao ARQUITETO (apenas não deletados)
+    const ensaio = await prisma.ensaio.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
       select: { 
         id: true,
         createdById: true,
         photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
           select: { id: true },
         },
       },
@@ -180,9 +184,12 @@ export async function PUT(
       );
     }
 
-    // Verificar se o ensaio existe e pertence ao ARQUITETO
-    const ensaio = await prisma.ensaio.findUnique({
-      where: { id },
+    // Verificar se o ensaio existe e pertence ao ARQUITETO (apenas não deletados)
+    const ensaio = await prisma.ensaio.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
       select: { 
         id: true,
         createdById: true,

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessGallery } from "@/lib/image-rights";
 import { canWriteOperation, canReadOperation } from "@/lib/write-guard-arquiteto";
 import { Role } from "@prisma/client";
+import { logDeleteAction } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +36,12 @@ export async function GET(
     const { id } = await params;
     const userRole = (session.user as any).role as Role;
 
-    // Verificar permissão de leitura (busca apenas userId primeiro)
-    const galleryCheck = await prisma.gallery.findUnique({
-      where: { id },
+    // Verificar permissão de leitura (busca apenas userId primeiro, apenas não deletados)
+    const galleryCheck = await prisma.gallery.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas galerias não deletadas
+      },
       select: { userId: true },
     });
 
@@ -54,14 +58,19 @@ export async function GET(
       );
     }
 
-    // Buscar galeria completa com todos os dados
-    const gallery = await prisma.gallery.findUnique({
-      where: { id },
+    // Buscar galeria completa com todos os dados (apenas não deletados)
+    const gallery = await prisma.gallery.findFirst({
+      where: { 
+        id,
+        deletedAt: null, // Apenas galerias não deletadas
+      },
       include: {
         User: {
+          where: { deletedAt: null }, // Apenas usuários não deletados
           select: { id: true, name: true, email: true },
         },
         Photo: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
           orderBy: { createdAt: "desc" },
           select: {
             id: true,
@@ -238,8 +247,17 @@ export async function DELETE(
       return NextResponse.json({ error: "Galeria não encontrada" }, { status: 404 });
     }
 
-    // Deletar galeria (cascata remove fotos e acessos)
-    await prisma.gallery.delete({ where: { id } });
+    // Soft delete
+    await prisma.gallery.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    // Registrar auditoria
+    await logDeleteAction(userId, "Gallery", id, {
+      title: existing.title,
+      userId: existing.userId,
+    });
 
     return NextResponse.json({ ok: true, message: "Galeria deletada com sucesso" });
   } catch (error: any) {
