@@ -9,8 +9,13 @@ export const dynamic = "force-dynamic";
 export default async function ModeloProfilePage() {
   const session = await auth();
 
+  if (!session || !session.user) {
+    redirect("/signin");
+  }
+
   // Proteção: apenas MODELO pode acessar
-  if (!session || (session.user as any)?.role !== "MODELO") {
+  const userRole = (session.user as any)?.role;
+  if (userRole !== "MODELO") {
     redirect("/signin");
   }
 

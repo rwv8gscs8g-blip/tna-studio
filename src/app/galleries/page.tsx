@@ -20,7 +20,7 @@ export default async function GalleriesPage() {
     redirect("/signin");
   }
   
-  if (!session?.user) {
+  if (!session || !session.user) {
     redirect("/signin");
   }
 

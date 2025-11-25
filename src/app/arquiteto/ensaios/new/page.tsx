@@ -8,11 +8,14 @@ export const dynamic = "force-dynamic";
 
 export default async function NewEnsaioPage() {
   const session = await auth();
-  
+  if (!session || !session.user) {
+    redirect("/signin");
+  }
+
   const userRole = (session.user as any)?.role;
   
   // Proteção: apenas ARQUITETO pode criar ensaios
-  if (!session || userRole !== "ARQUITETO") {
+  if (userRole !== "ARQUITETO") {
     redirect("/signin");
   }
 

@@ -7,9 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function CreateProjetoPage() {
   const session = await auth();
+  if (!session || !session.user) {
+    redirect("/signin");
+  }
+
   const userRole = (session.user as any)?.role;
 
-  if (!session || userRole !== "ARQUITETO") {
+  if (userRole !== "ARQUITETO") {
     redirect("/signin");
   }
 

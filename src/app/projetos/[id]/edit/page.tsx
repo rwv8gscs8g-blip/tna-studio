@@ -12,9 +12,13 @@ interface PageProps {
 
 export default async function EditProjetoPage({ params }: PageProps) {
   const session = await auth();
+  if (!session || !session.user) {
+    redirect("/signin");
+  }
+
   const userRole = (session.user as any)?.role;
 
-  if (!session || (userRole !== "ARQUITETO" && userRole !== "ADMIN")) {
+  if (userRole !== "ARQUITETO" && userRole !== "ADMIN")) {
     redirect("/signin");
   }
 

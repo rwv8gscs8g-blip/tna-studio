@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AvisosPage() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session || !session.user) {
     redirect("/signin");
   }
 

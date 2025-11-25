@@ -11,9 +11,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
   const session = await auth();
+  if (!session || !session.user) {
+    redirect("/signin");
+  }
+
   const userRole = (session.user as any)?.role;
   // ADMIN e ARQUITETO podem acessar (ADMIN somente leitura, ARQUITETO pode editar)
-  if (!session || (userRole !== "ADMIN" && userRole !== "ARQUITETO")) {
+  if (userRole !== "ADMIN" && userRole !== "ARQUITETO") {
     redirect("/signin");
   }
 

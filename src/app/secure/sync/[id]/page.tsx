@@ -12,7 +12,7 @@ interface PageProps {
 
 export default async function SecureSyncPage({ params }: PageProps) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session || !session.user) {
     redirect("/signin");
   }
 

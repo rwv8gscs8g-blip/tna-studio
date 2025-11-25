@@ -13,7 +13,7 @@ interface PageProps {
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session || !session.user) {
     redirect("/signin");
   }
 

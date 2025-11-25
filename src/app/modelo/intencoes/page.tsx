@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ModeloIntencoesPage() {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "MODELO") {
+  if (!session || !session.user) {
+    redirect("/signin");
+  }
+
+  const userRole = (session.user as any)?.role;
+  if (userRole !== "MODELO") {
     redirect("/signin");
   }
 
