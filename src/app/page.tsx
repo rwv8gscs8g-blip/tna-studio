@@ -22,13 +22,13 @@ export default async function HomePage(props: {
   if (session) {
     const userRole = (session.user as any)?.role;
     if (userRole === "ARQUITETO") {
-      redirect("/arquiteto/ensaios");
+      redirect("/arquiteto/home");
     } else if (userRole === "ADMIN") {
       redirect("/admin/reports");
     } else if (userRole === "MODELO") {
-      redirect("/modelo/ensaios");
+      redirect("/modelo/home");
     } else if (userRole === "CLIENTE") {
-      redirect("/");
+      redirect("/cliente/home");
     }
   }
 
@@ -64,7 +64,7 @@ export default async function HomePage(props: {
               fontSize: 14,
             }}
           >
-            Logout realizado com sucesso. Faça login novamente para continuar.
+            Você saiu da sua conta com sucesso.
           </div>
         )}
 
@@ -150,7 +150,7 @@ export default async function HomePage(props: {
                 e.currentTarget.style.transform = "translateY(0)";
               }}
             >
-              Criar Conta (Modelo)
+              Cadastre-se (MODELO)
             </Link>
           </div>
 

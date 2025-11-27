@@ -90,7 +90,17 @@ export default function Navigation() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
         <Link
-          href="/"
+          href={
+            userRole === "ARQUITETO"
+              ? "/arquiteto/home"
+              : userRole === "ADMIN"
+              ? "/admin/reports"
+              : userRole === "MODELO"
+              ? "/modelo/home"
+              : userRole === "CLIENTE"
+              ? "/cliente/home"
+              : "/"
+          }
           style={{
             fontSize: 20,
             fontWeight: 700,
@@ -104,6 +114,24 @@ export default function Navigation() {
           {/* Links por role */}
           {userRole === "ARQUITETO" && (
             <>
+              <Link
+                href="/arquiteto/home"
+                style={getLinkStyle("/arquiteto/home")}
+                onMouseEnter={(e) => {
+                  if (!isActive("/arquiteto/home")) {
+                    e.currentTarget.style.background = "#f9fafb";
+                    e.currentTarget.style.color = "#111827";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive("/arquiteto/home")) {
+                    e.currentTarget.style.background = isActive("/arquiteto/home") ? "#f3f4f6" : "transparent";
+                    e.currentTarget.style.color = "#6b7280";
+                  }
+                }}
+              >
+                Home
+              </Link>
               <Link
                 href="/arquiteto/ensaios"
                 style={getLinkStyle("/arquiteto/ensaios")}
@@ -230,29 +258,27 @@ export default function Navigation() {
               </Link>
             </>
           )}
-          {userRole !== "SUPERADMIN" && userRole !== "ARQUITETO" && userRole !== "MODELO" && (
-            <Link
-              href="/galleries"
-              style={{
-                color: "#6b7280",
-                textDecoration: "none",
-                fontSize: 14,
-                fontWeight: 500,
-                padding: "0.5rem 1rem",
-                borderRadius: 6,
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#f9fafb";
-                e.currentTarget.style.color = "#111827";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "#6b7280";
-              }}
-            >
-              Ensaios
-            </Link>
+          {userRole === "CLIENTE" && (
+            <>
+              <Link
+                href="/cliente/home"
+                style={getLinkStyle("/cliente/home")}
+                onMouseEnter={(e) => {
+                  if (!isActive("/cliente/home")) {
+                    e.currentTarget.style.background = "#f9fafb";
+                    e.currentTarget.style.color = "#111827";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive("/cliente/home")) {
+                    e.currentTarget.style.background = isActive("/cliente/home") ? "#f3f4f6" : "transparent";
+                    e.currentTarget.style.color = "#6b7280";
+                  }
+                }}
+              >
+                Home
+              </Link>
+            </>
           )}
           {userRole === "SUPERADMIN" && (
             <Link
@@ -300,44 +326,24 @@ export default function Navigation() {
           {canSeeAdmin && (
             <>
               {userRole === "ADMIN" && (
-                <>
-                  <Link
-                    href="/arquiteto/ensaios"
-                    style={getLinkStyle("/arquiteto/ensaios")}
-                    onMouseEnter={(e) => {
-                      if (!isActive("/arquiteto/ensaios")) {
-                        e.currentTarget.style.background = "#f9fafb";
-                        e.currentTarget.style.color = "#111827";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive("/arquiteto/ensaios")) {
-                        e.currentTarget.style.background = isActive("/arquiteto/ensaios") ? "#f3f4f6" : "transparent";
-                        e.currentTarget.style.color = "#6b7280";
-                      }
-                    }}
-                  >
-                    Ensaios
-                  </Link>
-                  <Link
-                    href="/loja"
-                    style={getLinkStyle("/loja")}
-                    onMouseEnter={(e) => {
-                      if (!isActive("/loja")) {
-                        e.currentTarget.style.background = "#f9fafb";
-                        e.currentTarget.style.color = "#111827";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive("/loja")) {
-                        e.currentTarget.style.background = isActive("/loja") ? "#f3f4f6" : "transparent";
-                        e.currentTarget.style.color = "#6b7280";
-                      }
-                    }}
-                  >
-                    Loja
-                  </Link>
-                </>
+                <Link
+                  href="/admin/reports"
+                  style={getLinkStyle("/admin/reports")}
+                  onMouseEnter={(e) => {
+                    if (!isActive("/admin/reports")) {
+                      e.currentTarget.style.background = "#f9fafb";
+                      e.currentTarget.style.color = "#111827";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive("/admin/reports")) {
+                      e.currentTarget.style.background = isActive("/admin/reports") ? "#f3f4f6" : "transparent";
+                      e.currentTarget.style.color = "#6b7280";
+                    }
+                  }}
+                >
+                  Ensaios
+                </Link>
               )}
               <Link
                 href="/admin/users"
@@ -355,7 +361,7 @@ export default function Navigation() {
                   }
                 }}
               >
-                Admin
+                Gerenciar usuários
               </Link>
               <Link
                 href="/admin/reports"

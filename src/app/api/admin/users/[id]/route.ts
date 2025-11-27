@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { canWriteOperation, canReadOperation } from "@/lib/write-guard-arquiteto";
+import { logDeleteAction } from "@/lib/audit";
 import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
 

@@ -26,10 +26,11 @@ export async function POST(req: NextRequest) {
     const userRole = (session.user as any)?.role;
     console.log("[API] Role do usuário:", userRole);
     
-    if (userRole !== "ARQUITETO" && userRole !== "ADMIN") {
+    // Apenas ARQUITETO pode criar ensaios (ADMIN tem acesso somente leitura)
+    if (userRole !== "ARQUITETO") {
       console.error("[API] Erro: Acesso negado. Role:", userRole);
       return NextResponse.json(
-        { error: "Acesso negado. Apenas ARQUITETO ou ADMIN pode criar ensaios." },
+        { error: "Acesso negado. Apenas ARQUITETO pode criar ensaios." },
         { status: 403 }
       );
     }

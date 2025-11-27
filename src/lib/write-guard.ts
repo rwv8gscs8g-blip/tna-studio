@@ -74,7 +74,7 @@ export async function canWriteAdminOperation(
   }
 
   // CAMADA 2: Verificação do login do admin
-  if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN) {
+  if (userRole !== Role.ADMIN && userRole !== Role.SUPERADMIN) {
     return {
       allowed: false,
       reason: "Camada 2 falhou: Usuário não é admin",

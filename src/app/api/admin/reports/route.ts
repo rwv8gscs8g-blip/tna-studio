@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         cpf: true,
         birthDate: true,
         createdAt: true,
+        profileImage: true,
       },
     });
 

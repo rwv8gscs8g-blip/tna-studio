@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   const userRole = (session.user as any).role as Role;
-  if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN) {
+  if (userRole !== Role.ADMIN && userRole !== Role.SUPERADMIN) {
     return NextResponse.json(
       { error: "Acesso negado. Apenas administradores podem testar gov.br." },
       { status: 403 }

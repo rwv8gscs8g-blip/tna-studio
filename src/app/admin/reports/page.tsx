@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import ViewModelModal from "./components/ViewModelModal";
 
 interface User {
   id: string;
@@ -12,6 +13,7 @@ interface User {
   cpf: string | null;
   birthDate: string | null;
   createdAt: Date;
+  profileImage: string | null;
 }
 
 interface ReportsData {
@@ -32,6 +34,7 @@ export default function AdminReportsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [selectedModelo, setSelectedModelo] = useState<User | null>(null);
   const [counts, setCounts] = useState({
     totalUsers: 0,
     arquitetoCount: 0,
@@ -43,14 +46,17 @@ export default function AdminReportsPage() {
 
   // Verificar autenticação
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (status === "loading") return;
+    
+    if (status === "unauthenticated" || !session?.user) {
       router.push("/signin");
       return;
     }
-    // ADMIN, ARQUITETO e SUPERADMIN podem acessar relatórios
-    const userRole = (session?.user as any)?.role;
+    
+    const userRole = (session.user as any).role;
     const canSeeAdmin = userRole === "ADMIN" || userRole === "ARQUITETO" || userRole === "SUPERADMIN";
-    if (status === "authenticated" && !canSeeAdmin) {
+    
+    if (!canSeeAdmin) {
       router.push("/");
       return;
     }
@@ -246,6 +252,7 @@ export default function AdminReportsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                <th style={{ padding: "0.75rem" }}>Avatar</th>
                 <th style={{ padding: "0.75rem" }}>Nome</th>
                 <th style={{ padding: "0.75rem" }}>Email</th>
                 <th style={{ padding: "0.75rem" }}>CPF</th>
@@ -259,7 +266,7 @@ export default function AdminReportsPage() {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+                  <td colSpan={9} style={{ padding: "2rem", textAlign: "center", color: "#6b7280" }}>
                     Nenhum usuário encontrado
                   </td>
                 </tr>
@@ -299,8 +306,27 @@ export default function AdminReportsPage() {
                     }).format(new Date(date));
                   };
 
+                  const avatarUrl = user.profileImage || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='16' fill='%236b7280'%3E${(user.name || user.email).charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`;
+
                   return (
                     <tr key={user.id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "0.75rem" }}>
+                        <img
+                          src={avatarUrl}
+                          alt={user.name || "Usuário"}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            border: "1px solid #e5e7eb",
+                          }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='16' fill='%236b7280'%3E${(user.name || user.email).charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E`;
+                          }}
+                        />
+                      </td>
                       <td style={{ padding: "0.75rem" }}>{user.name || "—"}</td>
                       <td style={{ padding: "0.75rem" }}>{user.email}</td>
                       <td style={{ padding: "0.75rem" }}>{formatCpf(user.cpf)}</td>
@@ -318,43 +344,7 @@ export default function AdminReportsPage() {
                       <td style={{ padding: "0.75rem" }}>
                         {user.role === "MODELO" && (
                           <button
-                            onClick={() => {
-                              // Abrir modal com dados da modelo
-                              const modal = document.createElement("div");
-                              modal.style.cssText = `
-                                position: fixed;
-                                top: 0;
-                                left: 0;
-                                right: 0;
-                                bottom: 0;
-                                background: rgba(0,0,0,0.5);
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                z-index: 1000;
-                              `;
-                              modal.innerHTML = `
-                                <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
-                                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                                    <h2 style="font-size: 24px; font-weight: 700;">Dados da Modelo</h2>
-                                    <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" style="background: transparent; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
-                                  </div>
-                                  <div style="display: grid; gap: 1rem;">
-                                    <div><strong>Nome:</strong> ${user.name || "—"}</div>
-                                    <div><strong>Email:</strong> ${user.email}</div>
-                                    <div><strong>CPF:</strong> ${formatCpf(user.cpf)}</div>
-                                    <div><strong>Data de Nascimento:</strong> ${formatBirthDate(user.birthDate)}</div>
-                                    <div><strong>Idade:</strong> ${age !== null ? `${age} anos` : "—"}</div>
-                                    <div><strong>Perfil:</strong> ${getRoleLabel(user.role)}</div>
-                                    <div><strong>Criado em:</strong> ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(user.createdAt))}</div>
-                                  </div>
-                                </div>
-                              `;
-                              document.body.appendChild(modal);
-                              modal.addEventListener("click", (e) => {
-                                if (e.target === modal) modal.remove();
-                              });
-                            }}
+                            onClick={() => setSelectedModelo(user)}
                             style={{
                               padding: "0.5rem 1rem",
                               background: "#111827",
@@ -378,6 +368,13 @@ export default function AdminReportsPage() {
           </table>
         </div>
       </section>
+
+      {selectedModelo && (
+        <ViewModelModal
+          user={selectedModelo}
+          onClose={() => setSelectedModelo(null)}
+        />
+      )}
     </div>
   );
 }

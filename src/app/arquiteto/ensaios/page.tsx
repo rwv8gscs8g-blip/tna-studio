@@ -14,14 +14,16 @@ interface PageProps {
 
 export default async function ArquitetoEnsaiosPage({ searchParams }: PageProps) {
   const session = await auth();
+  
+  // Proteção robusta
   if (!session || !session.user) {
     redirect("/signin");
   }
 
-  const userRole = (session.user as any)?.role;
-  // Proteção: apenas ARQUITETO ou ADMIN pode acessar
-  if (userRole !== "ARQUITETO" && userRole !== "ADMIN")) {
-    redirect("/signin");
+  const userRole = (session.user as any).role;
+  
+  if (userRole !== "ARQUITETO" && userRole !== "ADMIN") {
+    redirect("/");
   }
 
   const userId = (session.user as any)?.id;

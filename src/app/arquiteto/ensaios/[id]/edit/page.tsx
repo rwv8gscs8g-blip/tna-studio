@@ -415,21 +415,36 @@ export default function EditEnsaioPage() {
               <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
                 Sync Folder URL *
               </label>
-              <input
-                type="url"
+              <textarea
                 value={syncFolderUrl}
                 onChange={(e) => setSyncFolderUrl(e.target.value)}
                 required
                 disabled={saving}
                 placeholder="https://sync.com/folder/..."
+                rows={2}
                 style={{
                   width: "100%",
                   padding: "0.75rem",
                   border: "1px solid #d1d5db",
                   borderRadius: 6,
                   fontSize: 14,
+                  fontFamily: "monospace",
+                  resize: "vertical",
                 }}
               />
+              <div
+                style={{
+                  marginTop: "0.5rem",
+                  padding: "0.75rem",
+                  background: "#fef3c7",
+                  border: "1px solid #fbbf24",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  color: "#92400e",
+                }}
+              >
+                <strong>⚠️ Segurança:</strong> Este link é sensível e protegido. MODELO/CLIENTE acessam via página interna protegida, não recebem o link diretamente.
+              </div>
             </div>
           </div>
         </div>

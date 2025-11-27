@@ -99,10 +99,8 @@ export async function GET(req: NextRequest) {
         },
         include: {
           Gallery: {
-            where: { deletedAt: null }, // Apenas galerias não deletadas
             include: {
               User: {
-                where: { deletedAt: null }, // Apenas usuários não deletados
                 select: { id: true, name: true, email: true },
               },
               _count: {

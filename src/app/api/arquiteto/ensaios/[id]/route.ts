@@ -46,7 +46,6 @@ export async function GET(
       },
       include: {
         createdBy: {
-          where: { deletedAt: null }, // Apenas usuários não deletados
           select: {
             id: true,
             name: true,
@@ -54,7 +53,6 @@ export async function GET(
           },
         },
         subject: {
-          where: { deletedAt: null }, // Apenas usuários não deletados
           select: {
             id: true,
             name: true,

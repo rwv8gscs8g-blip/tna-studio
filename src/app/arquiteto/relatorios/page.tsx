@@ -14,6 +14,7 @@ interface User {
   cpf: string | null;
   birthDate: string | null;
   createdAt: Date;
+  profileImage: string | null;
 }
 
 interface ReportsData {
@@ -348,22 +349,7 @@ export default function ArquitetoRelatoriosPage() {
       {selectedModel && (
         <ViewModelModal
           user={selectedModel}
-          age={(() => {
-            if (!selectedModel.birthDate) return null;
-            const birth = new Date(selectedModel.birthDate);
-            const today = new Date();
-            let age = today.getFullYear() - birth.getFullYear();
-            const monthDiff = today.getMonth() - birth.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-              age--;
-            }
-            return age;
-          })()}
           onClose={() => setSelectedModel(null)}
-          onEdit={(userId) => {
-            setSelectedModel(null);
-            setSelectedUserForEdit(userId);
-          }}
         />
       )}
 

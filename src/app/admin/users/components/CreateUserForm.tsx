@@ -23,6 +23,35 @@ export default function CreateUserForm({ roles }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  async function handleProfileImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validação de tamanho (3 MB)
+    if (file.size > 3 * 1024 * 1024) {
+      setError("A foto de perfil deve ter no máximo 3 MB.");
+      return;
+    }
+
+    // Validação de tipo
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("A foto de perfil deve ser JPG, PNG ou WebP.");
+      return;
+    }
+
+    setProfileImageFile(file);
+    // Criar preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -30,21 +59,75 @@ export default function CreateUserForm({ roles }: Props) {
     setSuccess(null);
     setLoading(true);
 
+    // Primeiro criar o usuário
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(form),
     });
-
-    setLoading(false);
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data.error ?? "Erro ao criar usuário.");
+      setLoading(false);
       return;
     }
 
+    const data = await res.json();
+    const newUserId = data.user?.id;
+
+    // Se temos foto, fazer upload depois de criar o usuário
+    if (profileImageFile && newUserId) {
+      setUploadingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", profileImageFile);
+        formData.append("userId", newUserId);
+
+        const uploadRes = await fetch("/api/admin/users/upload-profile-image", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const uploadData = await uploadRes.json().catch(() => ({}));
+          setError(uploadData.error ?? "Usuário criado, mas erro ao fazer upload da foto de perfil.");
+          setLoading(false);
+          setUploadingImage(false);
+          return;
+        }
+
+        const uploadData = await uploadRes.json();
+        // Atualizar o usuário com a URL da foto
+        const updateRes = await fetch(`/api/admin/users/${newUserId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ profileImage: uploadData.url }),
+        });
+
+        if (!updateRes.ok) {
+          setError("Usuário criado, mas erro ao salvar foto de perfil.");
+          setLoading(false);
+          setUploadingImage(false);
+          return;
+        }
+      } catch (err: any) {
+        setError("Usuário criado, mas erro ao fazer upload da foto de perfil.");
+        setLoading(false);
+        setUploadingImage(false);
+        return;
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+
+    setLoading(false);
     setForm({ name: "", email: "", password: "", role: form.role, cpf: "", phone: "", birthDate: "" });
+    setProfileImageFile(null);
+    setProfileImagePreview(null);
     setSuccess("Usuário criado com sucesso.");
     router.refresh();
   }
@@ -151,11 +234,43 @@ export default function CreateUserForm({ roles }: Props) {
             ))}
         </select>
       </div>
+      <div>
+        <label style={{ fontSize: 14, fontWeight: 500 }}>Foto de Perfil (Opcional)</label>
+        {profileImagePreview && (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <img
+              src={profileImagePreview}
+              alt="Preview"
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "2px solid #e5e7eb",
+              }}
+            />
+          </div>
+        )}
+        <input
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          onChange={handleProfileImageChange}
+          disabled={loading || uploadingImage}
+          style={{
+            ...inputStyle,
+            padding: "0.5rem",
+            cursor: loading || uploadingImage ? "not-allowed" : "pointer",
+          }}
+        />
+        <span style={{ fontSize: 12, color: "#6b7280" }}>
+          JPG, PNG ou WebP. Máximo 3 MB.
+        </span>
+      </div>
       {error && <p style={{ color: "#b91c1c", fontSize: 14 }}>{error}</p>}
       {success && <p style={{ color: "#059669", fontSize: 14 }}>{success}</p>}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || uploadingImage}
         style={{
           padding: "0.75rem",
           borderRadius: 10,
@@ -163,10 +278,10 @@ export default function CreateUserForm({ roles }: Props) {
           color: "#fff",
           fontWeight: 600,
           border: "none",
-          cursor: loading ? "not-allowed" : "pointer",
+          cursor: loading || uploadingImage ? "not-allowed" : "pointer",
         }}
       >
-        {loading ? "Criando..." : "Adicionar usuário"}
+        {uploadingImage ? "Enviando foto..." : loading ? "Criando..." : "Adicionar usuário"}
       </button>
       <p style={{ fontSize: 12, color: "#6b7280" }}>
         * Campos obrigatórios: Nome, Email, Senha, CPF, Telefone, Data de Nascimento.

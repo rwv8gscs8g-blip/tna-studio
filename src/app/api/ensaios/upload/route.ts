@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_PDF_SIZE = 3 * 1024 * 1024; // 3 MB para PDFs
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
 const ALLOWED_PDF_TYPES = ["application/pdf"];
 
@@ -43,10 +44,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tipo inválido. Use: cover, term ou photo" }, { status: 400 });
     }
 
-    // Validação de tamanho
-    if (file.size > MAX_FILE_SIZE) {
+    // Validação de tamanho (3 MB para PDFs, 10 MB para imagens)
+    const maxSize = type === "term" ? MAX_PDF_SIZE : MAX_FILE_SIZE;
+    if (file.size > maxSize) {
+      const maxSizeMB = maxSize / 1024 / 1024;
       return NextResponse.json(
-        { error: `Arquivo muito grande. Tamanho máximo: ${MAX_FILE_SIZE / 1024 / 1024} MB` },
+        { error: `Arquivo muito grande. Tamanho máximo: ${maxSizeMB} MB` },
         { status: 400 }
       );
     }
@@ -60,9 +63,12 @@ export async function POST(req: NextRequest) {
         );
       }
     } else if (type === "term") {
-      if (!ALLOWED_PDF_TYPES.includes(file.type)) {
+      // Validação mais flexível para PDFs (alguns navegadores podem não detectar o MIME type corretamente)
+      const isPdf = ALLOWED_PDF_TYPES.includes(file.type) || 
+                    file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) {
         return NextResponse.json(
-          { error: "Tipo de arquivo não permitido. Use PDF." },
+          { error: "Tipo de arquivo não permitido. Apenas arquivos PDF (.pdf) são aceitos." },
           { status: 400 }
         );
       }

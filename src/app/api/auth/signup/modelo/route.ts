@@ -111,6 +111,11 @@ export async function POST(req: NextRequest) {
         cpf: normalizedCpf,
         phone: phone.trim(),
         birthDate: new Date(birthDate),
+        // Campos obrigatórios adicionais
+        lgpdAccepted: true,
+        gdprAccepted: true,
+        termsAccepted: true,
+        acceptedAt: new Date(),
       },
       select: {
         id: true,

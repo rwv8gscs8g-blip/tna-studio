@@ -31,12 +31,12 @@ const prisma = new PrismaClient();
  */
 
 const ARQUITETO_INICIAL = {
-  email: "[redacted-email]",
+  email: "arquiteto@tna.studio",
   name: "Luís Maurício Junqueira Zanin",
-  password: "[redacted-password]",
+  password: "Arquiteto@2025!", // Senha explícita para desenvolvimento
   role: Role.ARQUITETO,
-  phone: "[redacted-phone]",
-  cpf: "[redacted-cpf]",
+  phone: "+5561981321000",
+  cpf: "15030004866",
   passport: null,
   birthDate: new Date("1974-12-27"),
   lgpdAccepted: true,

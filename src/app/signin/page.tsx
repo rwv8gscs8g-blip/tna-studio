@@ -25,13 +25,13 @@ function SignInForm() {
       
       // Redirecionar por role
       if (userRole === "ARQUITETO") {
-        router.push(callbackUrl || "/arquiteto/ensaios");
+        router.push(callbackUrl || "/arquiteto/home");
       } else if (userRole === "ADMIN") {
         router.push(callbackUrl || "/admin/reports");
       } else if (userRole === "MODELO") {
         router.push(callbackUrl || "/modelo/home");
       } else if (userRole === "CLIENTE") {
-        router.push(callbackUrl || "/");
+        router.push(callbackUrl || "/cliente/home");
       } else {
         router.push(callbackUrl || "/");
       }

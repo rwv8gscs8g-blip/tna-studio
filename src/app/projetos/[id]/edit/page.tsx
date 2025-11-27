@@ -16,10 +16,10 @@ export default async function EditProjetoPage({ params }: PageProps) {
     redirect("/signin");
   }
 
-  const userRole = (session.user as any)?.role;
+  const userRole = (session.user as any).role;
 
-  if (userRole !== "ARQUITETO" && userRole !== "ADMIN")) {
-    redirect("/signin");
+  if (userRole !== "ARQUITETO" && userRole !== "ADMIN") {
+    redirect("/");
   }
 
   const { id } = await params;

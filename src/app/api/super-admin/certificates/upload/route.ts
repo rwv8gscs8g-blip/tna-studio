@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const userRole = (session.user as any).role as Role;
 
     // Apenas SUPER_ADMIN pode fazer upload de certificados
-    if (userRole !== Role.SUPER_ADMIN) {
+    if (userRole !== Role.SUPERADMIN) {
       return NextResponse.json(
         { error: "Apenas SUPER_ADMIN pode gerenciar certificados A1" },
         { status: 403 }

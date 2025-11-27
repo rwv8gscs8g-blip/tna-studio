@@ -25,8 +25,11 @@ export default async function AdminUsersPage() {
   // ARQUITETO sempre pode editar, independente de sessão ou modo somente leitura
   const canEdit = userRole === "ARQUITETO";
 
-  // Buscar TODOS os usuários (incluindo SUPERADMIN)
+  // Buscar TODOS os usuários não deletados (incluindo SUPERADMIN)
   const users = await prisma.user.findMany({
+    where: {
+      deletedAt: null, // Apenas usuários não deletados
+    },
     select: {
       id: true,
       email: true,
@@ -36,9 +39,9 @@ export default async function AdminUsersPage() {
       cpf: true,
       phone: true,
       birthDate: true,
+      profileImage: true,
     },
     orderBy: { createdAt: "desc" },
-    // Sem filtro - mostra todos os usuários
   });
 
   return (
@@ -71,7 +74,7 @@ export default async function AdminUsersPage() {
           <p style={{ fontSize: 12, letterSpacing: 1, color: "#9ca3af" }}>
             Controle interno
           </p>
-          <h1 style={{ fontSize: 28, fontWeight: 700 }}>Painel de Usuários</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 700 }}>Gerenciar usuários</h1>
           <p style={{ color: "#6b7280" }}>
             Lista de contas registradas no banco `tna_studio`.
           </p>
@@ -123,6 +126,7 @@ export default async function AdminUsersPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+              <th style={{ padding: "0.85rem" }}>Avatar</th>
               <th style={{ padding: "0.85rem" }}>Nome</th>
               <th style={{ padding: "0.85rem" }}>Email</th>
               <th style={{ padding: "0.85rem" }}>Perfil</th>
@@ -131,32 +135,72 @@ export default async function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
-              <tr key={user.id} style={{ borderTop: "1px solid #f3f4f6" }}>
-                <td style={{ padding: "0.85rem" }}>{user.name ?? "—"}</td>
-                <td style={{ padding: "0.85rem" }}>{user.email}</td>
-                <td style={{ padding: "0.85rem", textTransform: "capitalize" }}>
-                  {user.role.toLowerCase()}
-                </td>
-                <td style={{ padding: "0.85rem", color: "#6b7280" }}>
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(user.createdAt)}
-                </td>
-                <td style={{ padding: "0.85rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <EditUserButton userId={user.id} canEdit={canEdit} />
+            {users.length > 0 ? (
+              users.map((user) => {
+                const initial = (user.name || user.email || "U").charAt(0).toUpperCase();
+                const fallbackSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='16' fill='%236b7280'%3E${initial}%3C/text%3E%3C/svg%3E`;
+                
+                return (
+                  <tr key={user.id} style={{ borderTop: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "0.85rem" }}>
+                      {user.profileImage ? (
+                        <img
+                          src={user.profileImage}
+                          alt={user.name || "Usuário"}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            border: "1px solid #e5e7eb",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            backgroundColor: "#e5e7eb",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#6b7280",
+                            fontSize: 16,
+                            fontWeight: 600,
+                            border: "1px solid #e5e7eb",
+                          }}
+                        >
+                          {initial}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: "0.85rem" }}>{user.name ?? "—"}</td>
+                    <td style={{ padding: "0.85rem" }}>{user.email}</td>
+                    <td style={{ padding: "0.85rem", textTransform: "capitalize" }}>
+                      {user.role.toLowerCase()}
+                    </td>
+                    <td style={{ padding: "0.85rem", color: "#6b7280" }}>
+                      {new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(user.createdAt)}
+                    </td>
+                    <td style={{ padding: "0.85rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <EditUserButton userId={user.id} canEdit={canEdit} />
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#6b7280" }}>
+                  Nenhum usuário encontrado.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
-
-            {users.length === 0 && (
-              <p style={{ padding: "1rem", color: "#6b7280" }}>
-                Nenhum usuário encontrado.
-              </p>
-            )}
         </div>
       </div>
     </div>

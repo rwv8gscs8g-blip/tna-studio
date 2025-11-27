@@ -57,7 +57,7 @@ export default function SuperAdminCertificatesPage() {
     }
 
     const userRole = (session.user as any).role as Role;
-    if (userRole !== Role.SUPER_ADMIN) {
+    if (userRole !== Role.SUPERADMIN) {
       router.push("/");
       return;
     }
@@ -131,7 +131,7 @@ export default function SuperAdminCertificatesPage() {
   }
 
   const userRole = (session.user as any).role as Role;
-  if (userRole !== Role.SUPER_ADMIN) {
+  if (userRole !== Role.SUPERADMIN) {
     return null; // Redirecionamento em andamento
   }
 

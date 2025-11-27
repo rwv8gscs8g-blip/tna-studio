@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     const cpf = typeof body?.cpf === "string" ? body.cpf.replace(/\D/g, "") : null;
     const phone = typeof body?.phone === "string" ? body.phone.trim() : null;
     const birthDate = typeof body?.birthDate === "string" ? body.birthDate : null;
+    const profileImage = typeof body?.profileImage === "string" ? body.profileImage.trim() : null;
 
     // Validações obrigatórias
     if (!email || !email.trim()) {
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
         birthDate: new Date(birthDate),
         // Campos opcionais do body
         passport: body?.passport?.trim().toUpperCase() || null,
+        profileImage: profileImage || null,
       },
       select: { id: true, email: true, name: true, role: true, createdAt: true },
     });

@@ -55,7 +55,7 @@ export default function TestCertificateA1Page() {
     }
 
     const userRole = (session.user as any).role as Role;
-    if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN) {
+    if (userRole !== Role.ADMIN && userRole !== Role.SUPERADMIN) {
       router.push("/");
       return;
     }
@@ -96,7 +96,7 @@ export default function TestCertificateA1Page() {
   }
 
   const userRole = (session.user as any).role as Role;
-  if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN) {
+  if (userRole !== Role.ADMIN && userRole !== Role.SUPERADMIN) {
     return null; // Redirecionamento em andamento
   }
 

@@ -90,15 +90,15 @@ export default function SignOutButton({
           });
           localStorage.clear();
           sessionStorage.clear();
-          // Redireciona com cache busting
-          window.location.replace(`/signin?clearCookies=1&t=${Date.now()}`);
+          // Redireciona para home pública (sem cache busting para evitar loops)
+          window.location.replace(`/?logout=success`);
         }, 1000);
         
       } catch (error) {
         console.error("Erro ao fazer logout:", error);
         // Fallback: redireciona mesmo com erro
         setTimeout(() => {
-          window.location.href = "/signin?clearCookies=1";
+          window.location.replace("/?logout=success");
         }, 2000);
       }
     });

@@ -61,7 +61,7 @@ export async function POST(
     // Validações
     if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.trim()) {
       return NextResponse.json(
-        { error: "URL da imagem é obrigatória." },
+        { error: "Storage key da imagem é obrigatória." },
         { status: 400 }
       );
     }
@@ -108,7 +108,7 @@ export async function POST(
     const photo = await prisma.ensaioPhoto.create({
       data: {
         ensaioId: id,
-        imageUrl: imageUrl.trim(),
+        storageKey: imageUrl.trim(), // imageUrl do body é na verdade a storageKey (chave R2)
         sortOrder: sortOrder !== undefined ? parseInt(sortOrder) : ensaio.photos.length,
       },
     });
@@ -215,7 +215,7 @@ export async function PUT(
       photoOrders.map(({ photoId, sortOrder }: { photoId: string; sortOrder: number }) =>
         prisma.ensaioPhoto.update({
           where: { id: photoId, ensaioId: id },
-          data: { sortOrder: parseInt(sortOrder) },
+          data: { sortOrder: Number(sortOrder) },
         })
       )
     );

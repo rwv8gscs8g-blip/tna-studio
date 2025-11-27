@@ -78,8 +78,7 @@ export const authOptions: NextAuthConfig = {
         const isDev = process.env.NODE_ENV === "development";
         
         if (isDev) {
-          console.log("[auth-debug] DATABASE_URL:", process.env.DATABASE_URL?.replace(/:[^:@]+@/, ":****@"));
-          console.log("[auth-debug] credentials raw:", credentials);
+          console.log("[auth-debug] Authorize called");
         }
         
         try {
@@ -104,7 +103,7 @@ export const authOptions: NextAuthConfig = {
             },
           });
 
-          if (isDev) console.log("[auth-debug] user from DB:", user);
+          if (isDev) console.log("[auth-debug] user found:", !!user);
 
           if (!user || !user.passwordHash) {
             if (isDev) console.log("[auth-debug] user not found or no passwordHash");
@@ -122,7 +121,6 @@ export const authOptions: NextAuthConfig = {
           const role = (user.role as string) ?? "MODELO";
           if (isDev) console.log("[auth-debug] role:", role);
 
-          // Aceita todos os roles válidos (ARQUITETO, ADMIN, MODELO, CLIENTE, SUPERADMIN)
           const validRoles = ["ARQUITETO", "ADMIN", "MODELO", "CLIENTE", "SUPERADMIN"];
           if (!validRoles.includes(role)) {
             if (isDev) console.log("[auth-debug] invalid role, got:", role);

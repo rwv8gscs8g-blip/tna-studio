@@ -39,11 +39,24 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  // Buscar ensaio
+  // Buscar ensaio (sem expor syncFolderUrl diretamente - acesso via página protegida)
   const ensaio = await prisma.ensaio.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      shootDate: true,
+      status: true,
+      subjectCpf: true,
+      coverImageKey: true,
+      termPdfKey: true,
+      syncFolderUrl: true, // Mantido apenas para verificar se existe, mas não será exibido diretamente
+      createdAt: true,
+      updatedAt: true,
       photos: {
+        where: { deletedAt: null },
         orderBy: [
           { sortOrder: "asc" },
           { createdAt: "desc" },
@@ -216,7 +229,7 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
         <EnsaioPhotosClient ensaioId={ensaio.id} />
       </div>
 
-      {/* Link para Sync.com (apenas para MODELO ver, não editar) */}
+      {/* Link protegido para Sync.com - acesso via página interna */}
       {ensaio.syncFolderUrl && (
         <div
           style={{
@@ -231,12 +244,11 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
             Ensaio Completo em Alta Resolução
           </h2>
           <p style={{ color: "#6b7280", fontSize: 14, marginBottom: "1rem" }}>
-            Os arquivos completos em alta resolução ficam armazenados de forma segura no Sync.com, diferente da senha deste sistema.
+            Os arquivos completos em alta resolução ficam armazenados de forma segura no Sync.com. 
+            O acesso é protegido pela sua sessão autenticada no TNA-Studio.
           </p>
-          <a
-            href={ensaio.syncFolderUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={`/ensaios/${ensaio.id}/sync-preview`}
             style={{
               display: "inline-block",
               padding: "0.75rem 1.5rem",
@@ -248,8 +260,8 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
               fontWeight: 600,
             }}
           >
-            Baixar ensaio completo em alta resolução no Sync.com →
-          </a>
+            Ver ensaio completo em alta resolução →
+          </Link>
         </div>
       )}
     </div>

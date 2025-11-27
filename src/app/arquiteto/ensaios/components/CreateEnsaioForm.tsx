@@ -123,7 +123,23 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validação de tipo
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Apenas arquivos PDF são aceitos. Por favor, selecione um arquivo .pdf válido.");
+      e.target.value = ""; // Limpa o input
+      return;
+    }
+
+    // Validação de tamanho (3 MB)
+    const MAX_PDF_SIZE = 3 * 1024 * 1024; // 3 MB
+    if (file.size > MAX_PDF_SIZE) {
+      setError(`Arquivo muito grande. Tamanho máximo: 3 MB. Tamanho atual: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+      e.target.value = ""; // Limpa o input
+      return;
+    }
+
     setUploadingTerm(true);
+    setError(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -442,15 +458,27 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
                 border: "1px solid #d1d5db",
                 borderRadius: 6,
                 fontSize: 14,
-                minHeight: "100px",
+                minHeight: "150px",
                 background: "white",
               }}
             >
-              {produtos.map((produto) => (
-                <option key={produto.id} value={produto.id}>
-                  {produto.nome} {produto.isTfp ? "(TFP)" : `- R$ ${produto.preco.toFixed(2)}`}
-                </option>
-              ))}
+              {produtos
+                .sort((a, b) => {
+                  // Ordenar: TFP primeiro, depois por nome
+                  if (a.isTfp && !b.isTfp) return -1;
+                  if (!a.isTfp && b.isTfp) return 1;
+                  return a.nome.localeCompare(b.nome);
+                })
+                .map((produto) => {
+                  const priceLabel = produto.isTfp 
+                    ? "TFP / Permuta" 
+                    : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(produto.preco);
+                  return (
+                    <option key={produto.id} value={produto.id}>
+                      {produto.nome} – {priceLabel}
+                    </option>
+                  );
+                })}
             </select>
             <span style={{ fontSize: 12, color: "#6b7280" }}>
               Selecione um ou mais produtos (segure Ctrl/Cmd para múltipla seleção). Opcional.
@@ -496,7 +524,7 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
             <span style={{ fontSize: 14, fontWeight: 500 }}>Termo PDF *</span>
             <input
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,.pdf"
               onChange={handleTermUpload}
               disabled={isSubmitting || uploadingTerm}
               style={{
@@ -515,7 +543,7 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
               <div style={{ fontSize: 12, color: "#6b7280" }}>Fazendo upload...</div>
             )}
             <span style={{ fontSize: 12, color: "#6b7280" }}>
-              PDF do termo de autorização. Máximo 3 MB.
+              PDF do termo de autorização. Máximo 3 MB. Apenas arquivos .pdf são aceitos.
             </span>
             {/* Campo oculto para manter a key */}
             <input type="hidden" value={termPdfKey} required />
@@ -591,20 +619,34 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
         <div>
           <label style={{ display: "grid", gap: "0.5rem" }}>
             <span style={{ fontSize: 14, fontWeight: 500 }}>Sync Folder URL *</span>
-            <input
-              type="url"
+            <textarea
               value={syncFolderUrl}
               onChange={(e) => setSyncFolderUrl(e.target.value)}
               placeholder="https://sync.com/folder/..."
               required
               disabled={isSubmitting}
+              rows={2}
               style={{
                 padding: "0.75rem",
                 border: "1px solid #d1d5db",
                 borderRadius: 6,
                 fontSize: 14,
+                fontFamily: "monospace",
+                resize: "vertical",
               }}
             />
+            <div
+              style={{
+                padding: "0.75rem",
+                background: "#fef3c7",
+                border: "1px solid #fbbf24",
+                borderRadius: 6,
+                fontSize: 12,
+                color: "#92400e",
+              }}
+            >
+              <strong>⚠️ Segurança:</strong> Este link é sensível e protegido. MODELO/CLIENTE acessam via página interna protegida, não recebem o link diretamente.
+            </div>
             <span style={{ fontSize: 12, color: "#6b7280" }}>
               URL da pasta completa do ensaio no Sync.com (apenas para ARQUITETO/ADMIN).
             </span>

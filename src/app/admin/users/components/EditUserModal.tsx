@@ -24,6 +24,7 @@ interface UserData {
   city: string | null;
   state: string | null;
   country: string | null;
+  profileImage: string | null;
 }
 
 export default function EditUserModal({ userId, onClose, canEdit = true }: Props) {
@@ -33,13 +34,20 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
   const [success, setSuccess] = useState<string | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [form, setForm] = useState<Partial<UserData>>({});
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
       try {
-        const res = await fetch(`/api/admin/users/${userId}`);
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          credentials: "include",
+        });
         if (!res.ok) {
-          setError("Erro ao carregar dados do usuário");
+          const errorData = await res.json().catch(() => ({}));
+          setError(errorData.error || "Erro ao carregar dados do usuário");
+          setLoading(false);
           return;
         }
         const data = await res.json();
@@ -57,7 +65,9 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
           city: data.city || "",
           state: data.state || "",
           country: data.country || "",
+          profileImage: data.profileImage || null,
         });
+        setProfileImagePreview(data.profileImage || null);
       } catch (err: any) {
         setError(err.message || "Erro ao carregar usuário");
       } finally {
@@ -66,6 +76,32 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
     }
     loadUser();
   }, [userId]);
+
+  async function handleProfileImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validação de tamanho (3 MB)
+    if (file.size > 3 * 1024 * 1024) {
+      setError("A foto de perfil deve ter no máximo 3 MB.");
+      return;
+    }
+
+    // Validação de tipo
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("A foto de perfil deve ser JPG, PNG ou WebP.");
+      return;
+    }
+
+    setProfileImageFile(file);
+    // Criar preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,11 +116,51 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
     setError(null);
     setSuccess(null);
 
+    let profileImageUrl: string | null = form.profileImage || null;
+
+    // Upload da foto de perfil se houver nova
+    if (profileImageFile) {
+      setUploadingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", profileImageFile);
+        formData.append("userId", userId);
+
+        const uploadRes = await fetch("/api/admin/users/upload-profile-image", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const uploadData = await uploadRes.json().catch(() => ({}));
+          setError(uploadData.error ?? "Erro ao fazer upload da foto de perfil.");
+          setSaving(false);
+          setUploadingImage(false);
+          return;
+        }
+
+        const uploadData = await uploadRes.json();
+        profileImageUrl = uploadData.url;
+      } catch (err: any) {
+        setError("Erro ao fazer upload da foto de perfil.");
+        setSaving(false);
+        setUploadingImage(false);
+        return;
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        credentials: "include",
+        body: JSON.stringify({
+          ...form,
+          profileImage: profileImageUrl,
+        }),
       });
 
       const data = await res.json();
@@ -329,6 +405,42 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
             </select>
           </div>
 
+          <div>
+            <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
+              Foto de Perfil
+            </label>
+            {profileImagePreview && (
+              <div style={{ marginBottom: "0.5rem" }}>
+                <img
+                  src={profileImagePreview}
+                  alt="Preview"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "2px solid #e5e7eb",
+                  }}
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handleProfileImageChange}
+              disabled={!canEdit || saving || uploadingImage}
+              readOnly={!canEdit}
+              style={{
+                ...getInputStyle(canEdit),
+                padding: "0.5rem",
+                cursor: canEdit && !saving && !uploadingImage ? "pointer" : "not-allowed",
+              }}
+            />
+            <span style={{ fontSize: 12, color: "#6b7280" }}>
+              JPG, PNG ou WebP. Máximo 3 MB.
+            </span>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
               <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
@@ -463,19 +575,19 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
             {canEdit ? (
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || uploadingImage}
                 style={{
                   padding: "0.75rem 1.5rem",
-                  background: saving ? "#9ca3af" : "#111827",
+                  background: saving || uploadingImage ? "#9ca3af" : "#111827",
                   color: "#fff",
                   border: "none",
                   borderRadius: 8,
-                  cursor: saving ? "not-allowed" : "pointer",
+                  cursor: saving || uploadingImage ? "not-allowed" : "pointer",
                   fontSize: 14,
                   fontWeight: 500,
                 }}
               >
-                {saving ? "Salvando..." : "Salvar Alterações"}
+                {uploadingImage ? "Enviando foto..." : saving ? "Salvando..." : "Salvar Alterações"}
               </button>
             ) : (
               <button

@@ -71,24 +71,78 @@ export default function SyncLinkClient({ ensaioId }: SyncLinkClientProps) {
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: "1rem" }}>
         Pasta completa do ensaio no Sync.com com todas as fotos e materiais.
       </p>
-      <a
-        href={syncUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+      <div
         style={{
-          display: "inline-block",
-          padding: "0.75rem 1.5rem",
-          background: "#2563eb",
-          color: "#fff",
+          padding: "0.75rem",
+          background: "#fef3c7",
+          border: "1px solid #fbbf24",
           borderRadius: 8,
-          textDecoration: "none",
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: "pointer",
+          marginBottom: "1rem",
+          fontSize: 13,
+          color: "#92400e",
         }}
       >
-        🔗 Abrir pasta completa no Sync.com
-      </a>
+        <strong>⚠️ Segurança:</strong> O link do Sync.com é sensível. Use apenas para visualização interna ou edição controlada.
+      </div>
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <a
+          href={`/ensaios/${ensaioId}/sync-preview`}
+          style={{
+            display: "inline-block",
+            padding: "0.75rem 1.5rem",
+            background: "#2563eb",
+            color: "#fff",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          🔒 Visualizar no TNA-Studio (Seguro)
+        </a>
+        <button
+          type="button"
+          onClick={() => {
+            // Copiar URL para área de transferência (apenas para ARQUITETO/ADMIN)
+            if (syncUrl) {
+              navigator.clipboard.writeText(syncUrl).then(() => {
+                alert("Link copiado para área de transferência.");
+              }).catch(() => {
+                alert("Erro ao copiar link.");
+              });
+            }
+          }}
+          style={{
+            padding: "0.75rem 1.5rem",
+            background: "#6b7280",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          📋 Copiar Link (Uso Administrativo)
+        </button>
+      </div>
+      <div
+        style={{
+          marginTop: "1rem",
+          padding: "0.75rem",
+          background: "#f3f4f6",
+          borderRadius: 6,
+          fontSize: 12,
+          color: "#6b7280",
+          fontFamily: "monospace",
+          wordBreak: "break-all",
+          maxHeight: "60px",
+          overflow: "auto",
+        }}
+      >
+        {syncUrl ? `${syncUrl.substring(0, 60)}...` : "—"}
+      </div>
     </div>
   );
 }

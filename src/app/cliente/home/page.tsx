@@ -6,14 +6,14 @@ import Link from "next/link";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default async function ModeloHomePage() {
+export default async function ClienteHomePage() {
   const session = await auth();
   if (!session || !session.user) {
     redirect("/signin");
   }
 
   const userRole = (session.user as any)?.role;
-  if (userRole !== "MODELO") {
+  if (userRole !== "CLIENTE") {
     redirect("/signin");
   }
 
@@ -35,33 +35,13 @@ export default async function ModeloHomePage() {
     redirect("/signin");
   }
 
-  // Calcular idade
-  let idade: number | null = null;
-  if (user.birthDate) {
-    const today = new Date();
-    const birth = new Date(user.birthDate);
-    idade = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      idade--;
-    }
-  }
-
-  // Buscar estatísticas
-  const [ensaiosCount, intencoesCount] = await Promise.all([
-    prisma.ensaio.count({
-      where: {
-        subjectCpf: user.cpf || undefined,
-        status: "PUBLISHED",
-      },
-    }),
-    prisma.intencaoCompra.count({
-      where: {
-        modeloId: userId,
-        status: "PENDENTE",
-      },
-    }),
-  ]);
+  // Buscar estatísticas básicas
+  const ensaiosCount = await prisma.ensaio.count({
+    where: {
+      status: "PUBLISHED",
+      // TODO: Filtrar por cliente quando houver relação
+    },
+  });
 
   const formatCpf = (cpf: string | null) => {
     if (!cpf) return "—";
@@ -72,13 +52,10 @@ export default async function ModeloHomePage() {
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
       <header style={{ marginBottom: "2rem" }}>
         <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: "0.5rem" }}>
-          Bem-vinda, {user.name || user.email}!
+          Área do Cliente – TNA Studio
         </h1>
-        <p style={{ fontSize: 18, color: "#6b7280", marginBottom: "0.5rem" }}>
-          Bem-vinda à sua área TNA Studio
-        </p>
-        <p style={{ color: "#9ca3af", fontSize: 14 }}>
-          Área interna da modelo - TNA Studio
+        <p style={{ color: "#6b7280", fontSize: 16, lineHeight: 1.6 }}>
+          Esta área está em desenvolvimento e será usada para visualizar ensaios liberados para você.
         </p>
       </header>
 
@@ -105,7 +82,7 @@ export default async function ModeloHomePage() {
             >
               <img
                 src={user.profileImage}
-                alt={user.name || "Modelo"}
+                alt={user.name || "Cliente"}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             </div>
@@ -124,7 +101,7 @@ export default async function ModeloHomePage() {
                 fontWeight: 700,
               }}
             >
-              {(user.name || user.email || "M")[0].toUpperCase()}
+              {(user.name || user.email || "C")[0].toUpperCase()}
             </div>
           )}
 
@@ -136,12 +113,9 @@ export default async function ModeloHomePage() {
               <div>
                 <strong>E-mail:</strong> {user.email}
               </div>
-              <div>
-                <strong>CPF:</strong> {formatCpf(user.cpf)}
-              </div>
-              {idade !== null && (
+              {user.cpf && (
                 <div>
-                  <strong>Idade:</strong> {idade} anos
+                  <strong>CPF:</strong> {formatCpf(user.cpf)}
                 </div>
               )}
             </div>
@@ -170,21 +144,7 @@ export default async function ModeloHomePage() {
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginBottom: "0.5rem" }}>
             {ensaiosCount}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Ensaios Publicados</div>
-        </div>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            padding: "1.5rem",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginBottom: "0.5rem" }}>
-            {intencoesCount}
-          </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Intenções Pendentes</div>
+          <div style={{ fontSize: 14, color: "#6b7280" }}>Ensaios Disponíveis</div>
         </div>
       </div>
 
@@ -196,23 +156,6 @@ export default async function ModeloHomePage() {
           gap: "1rem",
         }}
       >
-        <Link
-          href="/modelo/ensaios"
-          style={{
-            display: "block",
-            padding: "1.5rem",
-            background: "#111827",
-            color: "#fff",
-            borderRadius: 12,
-            textDecoration: "none",
-            textAlign: "center",
-            fontWeight: 600,
-            fontSize: 16,
-          }}
-        >
-          📸 Meus Ensaios
-        </Link>
-
         <Link
           href="/loja"
           style={{
@@ -229,58 +172,9 @@ export default async function ModeloHomePage() {
         >
           🛍️ Loja TNA
         </Link>
-
-        <Link
-          href="/projetos"
-          style={{
-            display: "block",
-            padding: "1.5rem",
-            background: "#111827",
-            color: "#fff",
-            borderRadius: 12,
-            textDecoration: "none",
-            textAlign: "center",
-            fontWeight: 600,
-            fontSize: 16,
-          }}
-        >
-          📁 Projetos que participo
-        </Link>
-
-        <Link
-          href="/modelo/intencoes"
-          style={{
-            display: "block",
-            padding: "1.5rem",
-            background: "#111827",
-            color: "#fff",
-            borderRadius: 12,
-            textDecoration: "none",
-            textAlign: "center",
-            fontWeight: 600,
-            fontSize: 16,
-          }}
-        >
-          💼 Meus contratos
-        </Link>
-
-        <div
-          style={{
-            display: "block",
-            padding: "1.5rem",
-            background: "#f3f4f6",
-            color: "#6b7280",
-            borderRadius: 12,
-            textAlign: "center",
-            fontWeight: 600,
-            fontSize: 16,
-            cursor: "not-allowed",
-          }}
-        >
-          🔒 Trocar senha (em breve)
-        </div>
       </div>
     </div>
   );
 }
+
 

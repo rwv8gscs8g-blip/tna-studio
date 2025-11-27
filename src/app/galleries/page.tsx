@@ -32,7 +32,7 @@ export default async function GalleriesPage() {
   const userRole = (session.user as any).role as Role;
 
   // SUPER_ADMIN não tem acesso a galerias
-  if (userRole === Role.SUPER_ADMIN) {
+  if (userRole === Role.SUPERADMIN) {
     redirect("/super-admin/certificates");
   }
 
@@ -111,21 +111,24 @@ export default async function GalleriesPage() {
     <div style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <h1 style={{ fontSize: 32, fontWeight: 700 }}>Ensaios Fotográficos</h1>
-        <Link
-          href="/galleries/new"
-          style={{
-            display: "inline-block",
-            background: "#111",
-            color: "#fff",
-            padding: "0.75rem 1.5rem",
-            borderRadius: 8,
-            textDecoration: "none",
-            fontSize: 16,
-            fontWeight: 500,
-          }}
-        >
-          Novo Ensaio
-        </Link>
+        {/* Apenas ARQUITETO pode criar ensaios */}
+        {userRole === Role.ARQUITETO && (
+          <Link
+            href="/galleries/new"
+            style={{
+              display: "inline-block",
+              background: "#111",
+              color: "#fff",
+              padding: "0.75rem 1.5rem",
+              borderRadius: 8,
+              textDecoration: "none",
+              fontSize: 16,
+              fontWeight: 500,
+            }}
+          >
+            Novo Ensaio
+          </Link>
+        )}
       </div>
 
       {galleries.length === 0 ? (
