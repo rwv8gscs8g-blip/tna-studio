@@ -1,0 +1,198 @@
+/**
+ * Design System Premium - TNA-Studio V2
+ * TimelessNudeArt & ZANIN.art.br
+ * 
+ * Paleta: Cream/Ivory, Gold, Shadow, Black
+ * Tipografia: Serif Editorial + Sans Serif Premium
+ */
+
+:root {
+  /* Paleta de Cores Premium */
+  --color-cream-primary: #FAF7F2;
+  --color-cream-secondary: #F6F1E8;
+  --color-gold-primary: #C29B43;
+  --color-gold-bright: #D4AF37;
+  --color-gold-dark: #B3914B;
+  --color-shadow: #6E6251;
+  --color-black-text: rgba(27, 27, 27, 0.8);
+  --color-black-title: #1B1B1B;
+  
+  /* Cores de Estado */
+  --color-success: #10B981;
+  --color-error: #EF4444;
+  --color-warning: #F59E0B;
+  --color-info: #3B82F6;
+  
+  /* Espaçamento Premium */
+  --spacing-xs: 0.5rem;    /* 8px */
+  --spacing-sm: 0.75rem;   /* 12px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;     /* 24px */
+  --spacing-xl: 2rem;       /* 32px */
+  --spacing-2xl: 3rem;      /* 48px */
+  --spacing-3xl: 4rem;      /* 64px */
+  
+  /* Tipografia */
+  --font-serif: 'Playfair Display', 'Cormorant', 'Cinzel', Georgia, serif;
+  --font-sans: 'Inter', 'Helvetica Now', 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Sombras Premium */
+  --shadow-sm: 0 1px 2px 0 rgba(110, 98, 81, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(110, 98, 81, 0.1), 0 2px 4px -1px rgba(110, 98, 81, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(110, 98, 81, 0.1), 0 4px 6px -2px rgba(110, 98, 81, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(110, 98, 81, 0.1), 0 10px 10px -5px rgba(110, 98, 81, 0.04);
+  
+  /* Bordas */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  
+  /* Transições */
+  --transition-fast: 150ms ease-in-out;
+  --transition-base: 250ms ease-in-out;
+  --transition-slow: 350ms ease-in-out;
+}
+
+/* Tipografia Editorial */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  color: var(--color-black-title);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 2.5rem; /* 40px */
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 2rem; /* 32px */
+}
+
+h3 {
+  font-size: 1.5rem; /* 24px */
+}
+
+h4 {
+  font-size: 1.25rem; /* 20px */
+}
+
+/* Body Text Premium */
+body {
+  font-family: var(--font-sans);
+  color: var(--color-black-text);
+  line-height: 1.6;
+  font-size: 16px;
+  background-color: var(--color-cream-primary);
+}
+
+/* Links Premium */
+a {
+  color: var(--color-gold-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-gold-bright);
+}
+
+/* Cards Premium */
+.card-premium {
+  background: #FFFFFF;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--spacing-lg);
+  border: 1px solid rgba(194, 155, 67, 0.1);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.card-premium:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Botões Premium */
+.btn-premium {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-premium-primary {
+  background: var(--color-gold-primary);
+  color: #FFFFFF;
+}
+
+.btn-premium-primary:hover {
+  background: var(--color-gold-bright);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-premium-secondary {
+  background: transparent;
+  color: var(--color-gold-primary);
+  border: 1px solid var(--color-gold-primary);
+}
+
+.btn-premium-secondary:hover {
+  background: var(--color-gold-primary);
+  color: #FFFFFF;
+}
+
+/* Inputs Premium */
+.input-premium {
+  font-family: var(--font-sans);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(110, 98, 81, 0.2);
+  background: #FFFFFF;
+  color: var(--color-black-text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  font-size: 14px;
+}
+
+.input-premium:focus {
+  outline: none;
+  border-color: var(--color-gold-primary);
+  box-shadow: 0 0 0 3px rgba(194, 155, 67, 0.1);
+}
+
+/* Espaçamento Minimalista */
+.container-premium {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-lg);
+}
+
+.section-premium {
+  margin-bottom: var(--spacing-3xl);
+}
+
+/* Utilitários */
+.text-gold {
+  color: var(--color-gold-primary);
+}
+
+.bg-cream {
+  background-color: var(--color-cream-primary);
+}
+
+.bg-cream-secondary {
+  background-color: var(--color-cream-secondary);
+}
+
+.shadow-premium {
+  box-shadow: var(--shadow-lg);
+}
+

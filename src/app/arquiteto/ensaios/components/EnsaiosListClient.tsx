@@ -24,8 +24,10 @@ interface Projeto {
 
 interface Produto {
   id: string;
+  slug: string | null;
   nome: string;
-  isTfp: boolean;
+  precoEuro: number | null;
+  categoria: string | null;
 }
 
 interface Ensaio {
@@ -56,8 +58,10 @@ interface Ensaio {
   produtos?: Array<{
     produto: {
       id: string;
+      slug: string | null;
       nome: string;
-      isTfp: boolean;
+      precoEuro: number | null;
+      categoria: string | null;
     };
   }>;
 }
@@ -242,7 +246,7 @@ export default function EnsaiosListClient({
             <option value="">Todos</option>
             {produtos.map((produto) => (
               <option key={produto.id} value={produto.id}>
-                {produto.nome} {produto.isTfp ? "(TFP)" : ""}
+                {produto.nome} {(!produto.precoEuro || produto.categoria === "Cortesia") ? "(Cortesia)" : ""}
               </option>
             ))}
           </select>
@@ -418,11 +422,11 @@ export default function EnsaiosListClient({
                                 borderRadius: 4,
                                 fontSize: 11,
                                 fontWeight: 600,
-                                backgroundColor: ep.produto.isTfp ? "#fef3c7" : "#dcfce7",
-                                color: ep.produto.isTfp ? "#92400e" : "#166534",
+                                backgroundColor: (!ep.produto.precoEuro || ep.produto.categoria === "Cortesia") ? "#fef3c7" : "#dcfce7",
+                                color: (!ep.produto.precoEuro || ep.produto.categoria === "Cortesia") ? "#92400e" : "#166534",
                               }}
                             >
-                              {ep.produto.isTfp ? "🔥" : "📦"} {ep.produto.nome}
+                              {(!ep.produto.precoEuro || ep.produto.categoria === "Cortesia") ? "🔥" : "📦"} {ep.produto.nome}
                             </span>
                           ))}
                         </>

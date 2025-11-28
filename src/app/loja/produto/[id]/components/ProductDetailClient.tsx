@@ -4,16 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Role } from "@prisma/client";
+import CurrencyDisplay from "@/app/components/CurrencyDisplay";
+import { renderSanitizedHTML } from "@/components/rich-text/RichTextField";
 
 interface ProductDetailClientProps {
   produto: {
     id: string;
+    slug: string | null;
     nome: string;
-    descricao?: string | null;
-    preco: number;
+    shortDescription?: string | null;
+    fullDescription?: string | null;
+    precoEuro?: number | null;
     categoria?: string | null;
-    isPromocao: boolean;
-    isTfp: boolean;
     coverImageKey?: string | null;
     photos: Array<{
       id: string;
@@ -49,7 +51,9 @@ export default function ProductDetailClient({
       try {
         // Carregar capa
         if (produto.coverImageKey) {
-          const coverRes = await fetch(`/api/produtos/${produto.id}/cover`);
+          const coverRes = await fetch(`/api/produtos/${produto.id}/cover`, {
+            credentials: "include",
+          });
           if (coverRes.ok) {
             const coverData = await coverRes.json();
             setCoverUrl(coverData.signedUrl);
@@ -58,7 +62,9 @@ export default function ProductDetailClient({
 
         // Carregar fotos da mini-galeria
         const photoPromises = produto.photos.map(async (photo) => {
-          const res = await fetch(`/api/produtos/${produto.id}/photos/${photo.id}`);
+          const res = await fetch(`/api/produtos/${produto.id}/photos/${photo.id}`, {
+            credentials: "include",
+          });
           if (res.ok) {
             const data = await res.json();
             return { id: photo.id, url: data.signedUrl };
@@ -100,6 +106,7 @@ export default function ProductDetailClient({
       const res = await fetch("/api/intencoes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ produtoId: produto.id }),
       });
 
@@ -117,13 +124,7 @@ export default function ProductDetailClient({
     }
   };
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return "TFP / Permuta";
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(price);
-  };
+  // Importar CurrencyDisplay será feito no topo do arquivo
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
@@ -241,61 +242,51 @@ export default function ProductDetailClient({
         {/* Informações */}
         <div>
           <div style={{ marginBottom: "1rem" }}>
-            {(produto.isPromocao || produto.isTfp) && (
-              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                {produto.isTfp && (
-                  <span
-                    style={{
-                      padding: "0.5rem 1rem",
-                      borderRadius: 8,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      backgroundColor: "#fef3c7",
-                      color: "#92400e",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    🔥 TFP / Permuta
-                  </span>
-                )}
-                {produto.isPromocao && !produto.isTfp && (
-                  <span
-                    style={{
-                      padding: "0.5rem 1rem",
-                      borderRadius: 8,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      backgroundColor: "#dcfce7",
-                      color: "#166534",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Promoção
-                  </span>
-                )}
+            {produto.categoria && (
+              <div style={{ marginBottom: "1rem" }}>
+                <span
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    backgroundColor: produto.categoria === "Cortesia" ? "#fef3c7" : "#dcfce7",
+                    color: produto.categoria === "Cortesia" ? "#92400e" : "#166534",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {produto.categoria === "Cortesia" ? "🔥" : ""} {produto.categoria}
+                </span>
               </div>
             )}
             <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: "0.5rem", color: "#111827" }}>
               {produto.nome}
             </h1>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 700,
-                color: produto.isTfp ? "#92400e" : "#111827",
-                marginBottom: "1rem",
-              }}
-            >
-              {formatPrice(produto.preco)}
+            <div style={{ marginBottom: "1rem" }}>
+              <CurrencyDisplay 
+                valueEuro={produto.precoEuro} 
+                highlight={true}
+                showBase={true}
+                showNote={true}
+              />
             </div>
           </div>
 
-          {produto.descricao && (
-            <div style={{ marginBottom: "2rem" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: "0.75rem" }}>Descrição</h2>
-              <p style={{ color: "#6b7280", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                {produto.descricao}
+          {produto.shortDescription && (
+            <div style={{ marginBottom: "1rem" }}>
+              <p style={{ color: "#6b7280", lineHeight: 1.6, fontSize: 16 }}>
+                {produto.shortDescription}
               </p>
+            </div>
+          )}
+
+          {produto.fullDescription && (
+            <div style={{ marginBottom: "2rem" }}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: "0.75rem" }}>Descrição Completa</h2>
+              <div 
+                style={{ color: "#6b7280", lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{ __html: renderSanitizedHTML(produto.fullDescription) }}
+              />
             </div>
           )}
 
@@ -311,9 +302,9 @@ export default function ProductDetailClient({
                 color: "#6b7280",
               }}
             >
-              {produto.isTfp ? (
+              {(!produto.precoEuro || produto.categoria === "Cortesia") ? (
                 <p>
-                  Este é um ensaio TFP (Time For Print) / Permuta. Você receberá as fotos editadas em troca da
+                  Este é um ensaio de cortesia / permuta. Você receberá as fotos editadas em troca da
                   autorização de uso de imagem para fins comerciais e artísticos.
                 </p>
               ) : (
@@ -425,4 +416,5 @@ export default function ProductDetailClient({
     </div>
   );
 }
+
 

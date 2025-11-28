@@ -53,7 +53,7 @@ export default function EnsaiosListModeloClient({ ensaios }: EnsaiosListModeloCl
           Ainda não há ensaios publicados associados ao seu cadastro.
         </p>
         <p style={{ fontSize: 14, color: "#9ca3af" }}>
-          Assim que o Arquiteto vincular seu ensaio, ele aparecerá aqui.
+          Assim que seu ensaio for vinculado, ele aparecerá aqui.
         </p>
       </div>
     );

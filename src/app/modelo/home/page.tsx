@@ -170,7 +170,7 @@ export default async function ModeloHomePage() {
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginBottom: "0.5rem" }}>
             {ensaiosCount}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Ensaios Publicados</div>
+          <div style={{ fontSize: 14, color: "#6b7280" }}>Ensaios Realizados</div>
         </div>
         <div
           style={{

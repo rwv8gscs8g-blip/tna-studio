@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Role } from "@prisma/client";
 import ResetPasswordButton from "./ResetPasswordButton";
+import { formatCpf, parseCpf, formatCep, parseCep } from "@/lib/formatters";
 
 type Props = {
   userId: string;
@@ -67,7 +68,30 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
           country: data.country || "",
           profileImage: data.profileImage || null,
         });
-        setProfileImagePreview(data.profileImage || null);
+        
+        // Buscar URL assinada da foto existente se houver
+        if (data.profileImage) {
+          try {
+            const imageRes = await fetch(`/api/users/${userId}/profile-image`, {
+              credentials: "include",
+            });
+            if (imageRes.ok) {
+              const imageData = await imageRes.json();
+              if (imageData.signedUrl) {
+                setProfileImagePreview(imageData.signedUrl);
+              } else {
+                setProfileImagePreview(null);
+              }
+            } else {
+              setProfileImagePreview(null);
+            }
+          } catch (err) {
+            console.error("Erro ao buscar URL da foto:", err);
+            setProfileImagePreview(null);
+          }
+        } else {
+          setProfileImagePreview(null);
+        }
       } catch (err: any) {
         setError(err.message || "Erro ao carregar usuário");
       } finally {
@@ -81,9 +105,9 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validação de tamanho (3 MB)
-    if (file.size > 3 * 1024 * 1024) {
-      setError("A foto de perfil deve ter no máximo 3 MB.");
+    // Validação de tamanho (40 MB em dev)
+    if (file.size > 40 * 1024 * 1024) {
+      setError("A foto de perfil deve ter no máximo 40 MB.");
       return;
     }
 
@@ -141,7 +165,13 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
         }
 
         const uploadData = await uploadRes.json();
-        profileImageUrl = uploadData.url;
+        // Usar storageKey (key) em vez de URL assinada para salvar no banco
+        profileImageUrl = uploadData.key || uploadData.url;
+        
+        // Atualizar preview com a URL assinada retornada (se disponível)
+        if (uploadData.url) {
+          setProfileImagePreview(uploadData.url);
+        }
       } catch (err: any) {
         setError("Erro ao fazer upload da foto de perfil.");
         setSaving(false);
@@ -159,6 +189,8 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
         credentials: "include",
         body: JSON.stringify({
           ...form,
+          cpf: parseCpf(form.cpf || ""), // Garantir que CPF está sem formatação
+          zipCode: parseCep(form.zipCode || ""), // Garantir que CEP está sem formatação
           profileImage: profileImageUrl,
         }),
       });
@@ -331,10 +363,15 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
               </label>
               <input
                 type="text"
-                value={form.cpf || ""}
-                onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, "") })}
-                maxLength={11}
-                placeholder="00000000000"
+                value={formatCpf(form.cpf || "")}
+                onChange={(e) => {
+                  const parsed = parseCpf(e.target.value);
+                  if (parsed.length <= 11) {
+                    setForm({ ...form, cpf: parsed });
+                  }
+                }}
+                maxLength={14}
+                placeholder="000.000.000-00"
                 disabled={!canEdit}
                 readOnly={!canEdit}
                 style={getInputStyle(canEdit)}
@@ -437,7 +474,7 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
               }}
             />
             <span style={{ fontSize: 12, color: "#6b7280" }}>
-              JPG, PNG ou WebP. Máximo 3 MB.
+              JPG, PNG ou WebP. Máximo 40 MB (dev).
             </span>
           </div>
 
@@ -461,9 +498,15 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
               </label>
               <input
                 type="text"
-                value={form.zipCode || ""}
-                onChange={(e) => setForm({ ...form, zipCode: e.target.value.replace(/\D/g, "") })}
-                maxLength={8}
+                value={formatCep(form.zipCode || "")}
+                onChange={(e) => {
+                  const parsed = parseCep(e.target.value);
+                  if (parsed.length <= 8) {
+                    setForm({ ...form, zipCode: parsed });
+                  }
+                }}
+                maxLength={9}
+                placeholder="00000-000"
                 disabled={!canEdit}
                 readOnly={!canEdit}
                 style={getInputStyle(canEdit)}
@@ -578,13 +621,24 @@ export default function EditUserModal({ userId, onClose, canEdit = true }: Props
                 disabled={saving || uploadingImage}
                 style={{
                   padding: "0.75rem 1.5rem",
-                  background: saving || uploadingImage ? "#9ca3af" : "#111827",
+                  background: saving || uploadingImage ? "#9ca3af" : "#2563eb",
                   color: "#fff",
                   border: "none",
                   borderRadius: 8,
                   cursor: saving || uploadingImage ? "not-allowed" : "pointer",
                   fontSize: 14,
-                  fontWeight: 500,
+                  fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!saving && !uploadingImage) {
+                    e.currentTarget.style.background = "#1d4ed8";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!saving && !uploadingImage) {
+                    e.currentTarget.style.background = "#2563eb";
+                  }
                 }}
               >
                 {uploadingImage ? "Enviando foto..." : saving ? "Salvando..." : "Salvar Alterações"}

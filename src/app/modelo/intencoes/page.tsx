@@ -25,9 +25,10 @@ export default async function ModeloIntencoesPage() {
       produto: {
         select: {
           id: true,
+          slug: true,
           nome: true,
-          preco: true,
-          isTfp: true,
+          precoEuro: true,
+          categoria: true,
           coverImageKey: true,
         },
       },
@@ -35,11 +36,11 @@ export default async function ModeloIntencoesPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return "TFP / Permuta";
+  const formatPrice = (price: number | null | undefined, categoria: string | null | undefined) => {
+    if (!price || price === 0 || categoria === "Cortesia") return "Cortesia";
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
-      currency: "BRL",
+      currency: "EUR",
     }).format(price);
   };
 
@@ -138,7 +139,7 @@ export default async function ModeloIntencoesPage() {
                   </div>
                   <div style={{ fontSize: 14, color: "#6b7280" }}>
                     <p>
-                      <strong>Preço:</strong> {formatPrice(intencao.produto.preco)}
+                      <strong>Preço:</strong> {formatPrice(intencao.produto.precoEuro, intencao.produto.categoria)}
                     </p>
                     <p>
                       <strong>Solicitado em:</strong>{" "}

@@ -21,12 +21,13 @@ export async function GET(
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
 
-    const { id, photoId } = await params;
+    const { id: produtoId, photoId } = await params;
 
     const photo = await prisma.produtoPhoto.findFirst({
       where: {
         id: photoId,
-        produtoId: id,
+        produtoId,
+        deletedAt: null,
       },
       select: { storageKey: true },
     });
@@ -36,7 +37,7 @@ export async function GET(
     }
 
     try {
-      const signedUrl = await getSignedUrlForKey(photo.storageKey, { expiresInSeconds: 120 });
+      const signedUrl = await getSignedUrlForKey(photo.storageKey, { expiresInSeconds: 3600 });
 
       return NextResponse.json(
         { signedUrl },
@@ -61,4 +62,3 @@ export async function GET(
     );
   }
 }
-

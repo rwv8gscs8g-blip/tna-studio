@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
+import { canEditProfile } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,21 +26,23 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "ID do usuário não encontrado na sessão" }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as any).role as Role;
+    const body = await req.json();
+    const { name, phone, cpf, passport, birthDate, password, targetUserId } = body;
     
-    // MODELO não pode alterar seus dados após cadastro (somente ARQUITETO pode editar)
-    if (userRole === "MODELO") {
+    // Verificar permissão para editar perfil
+    const targetId = targetUserId || userId; // Se não especificado, edita próprio perfil
+    const permission = canEditProfile(userRole, targetId, userId);
+    
+    if (!permission.allowed) {
       return NextResponse.json(
-        { error: "Modelos não podem alterar seus dados após o cadastro. Apenas o Arquiteto responsável pode atualizar seus dados." },
+        { error: permission.error || "Acesso negado" },
         { status: 403 }
       );
     }
     
-    const body = await req.json();
-    const { name, phone, cpf, passport, birthDate, password } = body;
-
     // CLIENTE não pode alterar CPF (chave para galerias)
-    if (userRole === "CLIENTE" && cpf !== undefined) {
+    if (userRole === Role.CLIENTE && cpf !== undefined) {
       return NextResponse.json(
         { error: "Clientes não podem alterar o CPF. O CPF é usado como chave para suas galerias." },
         { status: 403 }
@@ -156,9 +160,9 @@ export async function PATCH(req: NextRequest) {
       updateData.passwordHash = await bcrypt.hash(password, 12);
     }
 
-    // Atualizar usuário
+    // Atualizar usuário (pode ser próprio ou outro se for ARQUITETO)
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: targetId },
       data: updateData,
       select: {
         id: true,

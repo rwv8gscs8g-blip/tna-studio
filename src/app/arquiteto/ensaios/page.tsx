@@ -106,8 +106,10 @@ export default async function ArquitetoEnsaiosPage({ searchParams }: PageProps) 
           produto: {
             select: {
               id: true,
+              slug: true,
               nome: true,
-              isTfp: true,
+              precoEuro: true,
+              categoria: true,
             },
           },
         },
@@ -134,7 +136,8 @@ export default async function ArquitetoEnsaiosPage({ searchParams }: PageProps) 
       orderBy: { name: "asc" },
     }),
     prisma.produto.findMany({
-      select: { id: true, nome: true, isTfp: true },
+      where: { deletedAt: null, isActive: true },
+      select: { id: true, slug: true, nome: true, precoEuro: true, categoria: true },
       orderBy: { nome: "asc" },
     }),
   ]);

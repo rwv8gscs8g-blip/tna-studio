@@ -70,7 +70,7 @@ export default function ProfileFormComplete() {
     // ADMIN e MODELO não podem alterar dados pessoais
     if (!canEditPersonalData) {
       setStatus("error");
-      setMessage("Você não tem permissão para alterar dados pessoais. Apenas o Arquiteto pode fazer alterações.");
+      setMessage("Você não tem permissão para alterar dados pessoais. Apenas o responsável pode fazer alterações.");
       return;
     }
     

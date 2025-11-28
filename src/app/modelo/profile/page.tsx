@@ -107,7 +107,7 @@ export default async function ModeloProfilePage() {
           color: "#92400e",
         }}
       >
-        <strong>ℹ️ Informação:</strong> Seus dados pessoais foram cadastrados e só podem ser atualizados pelo Arquiteto responsável pelo ensaio. Alteração de senha disponível em breve.
+        <strong>ℹ️ Informação:</strong> Seus dados pessoais foram cadastrados e só podem ser atualizados pelo responsável pelo ensaio. Alteração de senha disponível em breve.
       </div>
 
       {/* Dados pessoais - somente leitura */}

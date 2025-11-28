@@ -78,9 +78,10 @@ export default async function ArquitetoEnsaioDetailPage({ params }: PageProps) {
           produto: {
             select: {
               id: true,
+              slug: true,
               nome: true,
-              preco: true,
-              isTfp: true,
+              precoEuro: true,
+              categoria: true,
             },
           },
         },
@@ -297,12 +298,12 @@ export default async function ArquitetoEnsaioDetailPage({ params }: PageProps) {
                         borderRadius: 6,
                         fontSize: 12,
                         fontWeight: 600,
-                        backgroundColor: ep.produto.isTfp ? "#fef3c7" : "#dcfce7",
-                        color: ep.produto.isTfp ? "#92400e" : "#166534",
+                        backgroundColor: (!ep.produto.precoEuro || ep.produto.categoria === "Cortesia") ? "#fef3c7" : "#dcfce7",
+                        color: (!ep.produto.precoEuro || ep.produto.categoria === "Cortesia") ? "#92400e" : "#166534",
                       }}
                     >
-                      {ep.produto.isTfp ? "🔥" : "📦"} {ep.produto.nome}
-                      {ep.produto.preco > 0 && ` - R$ ${ep.produto.preco.toFixed(2)}`}
+                      {(!ep.produto.precoEuro || ep.produto.categoria === "Cortesia") ? "🔥" : "📦"} {ep.produto.nome}
+                      {ep.produto.precoEuro && ep.produto.precoEuro > 0 && ` - €${ep.produto.precoEuro.toFixed(2)}`}
                     </span>
                   ))}
                 </div>

@@ -84,8 +84,12 @@ export async function GET(
       );
     }
 
+    // Normalizar CPFs para comparação (apenas números)
+    const userCpfNormalized = user.cpf.replace(/\D/g, "");
+    const ensaioCpfNormalized = ensaio.subjectCpf ? ensaio.subjectCpf.replace(/\D/g, "") : "";
+
     // Verificar se o ensaio é da MODELO logada e está publicado
-    if (ensaio.subjectCpf !== user.cpf) {
+    if (ensaioCpfNormalized !== userCpfNormalized) {
       return NextResponse.json(
         { error: "Acesso negado. Este ensaio não está associado ao seu cadastro." },
         { status: 403 }
@@ -100,9 +104,22 @@ export async function GET(
     }
 
     // Retornar ensaio sem syncFolderUrl (reservado para ARQUITETO/ADMIN)
+    // Incluir d4signDocumentId para o componente de termo
     const ensaioForModelo = {
-      ...ensaio,
-      syncFolderUrl: undefined, // Não expor link do Sync para MODELO
+      id: ensaio.id,
+      title: ensaio.title,
+      slug: ensaio.slug,
+      description: ensaio.description,
+      shootDate: ensaio.shootDate,
+      status: ensaio.status,
+      subjectCpf: ensaio.subjectCpf,
+      coverImageKey: ensaio.coverImageKey,
+      termPdfKey: ensaio.termPdfKey,
+      d4signDocumentId: ensaio.d4signDocumentId, // Incluir para verificação no componente
+      createdAt: ensaio.createdAt,
+      updatedAt: ensaio.updatedAt,
+      photos: ensaio.photos,
+      // syncFolderUrl não é exposto para MODELO
     };
 
     return NextResponse.json(ensaioForModelo);

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import RichTextField from "@/components/rich-text/RichTextField";
+import EnsaioPhotosUpload from "./components/EnsaioPhotosUpload";
 
 interface Ensaio {
   id: string;
@@ -14,6 +16,7 @@ interface Ensaio {
   subjectCpf: string;
   coverImageKey: string | null;
   termPdfKey: string | null;
+  d4signDocumentId: string | null;
   syncFolderUrl: string | null;
   subject: {
     id: string;
@@ -24,7 +27,7 @@ interface Ensaio {
   };
   photos: Array<{
     id: string;
-    imageUrl: string;
+    storageKey: string;
     sortOrder: number;
   }>;
 }
@@ -55,13 +58,11 @@ export default function EditEnsaioPage() {
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const [coverImageKey, setCoverImageKey] = useState("");
   const [termPdfKey, setTermPdfKey] = useState("");
+  const [d4signDownloadUrl, setD4signDownloadUrl] = useState("");
   const [syncFolderUrl, setSyncFolderUrl] = useState("");
 
   // Gerenciamento de fotos
-  const [photos, setPhotos] = useState<Array<{ id: string; imageUrl: string; sortOrder: number }>>([]);
-  const [newPhotoUrl, setNewPhotoUrl] = useState("");
-  const [addingPhoto, setAddingPhoto] = useState(false);
-  const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<Array<{ id: string; storageKey: string; sortOrder: number; url?: string }>>([]);
 
   // Carregar ensaio
   useEffect(() => {
@@ -83,8 +84,27 @@ export default function EditEnsaioPage() {
         setStatus(data.status);
         setCoverImageKey(data.coverImageKey || "");
         setTermPdfKey(data.termPdfKey || "");
+        setD4signDownloadUrl(data.d4signDocumentId || "");
         setSyncFolderUrl(data.syncFolderUrl || "");
-        setPhotos(data.photos || []);
+        
+        // Carregar URLs assinadas das fotos
+        const photosWithUrls = await Promise.all(
+          (data.photos || []).map(async (photo: { id: string; storageKey: string; sortOrder: number }) => {
+            try {
+              const urlRes = await fetch(`/api/ensaios/${id}/photos/${photo.id}/url`, {
+                credentials: "include",
+              });
+              if (urlRes.ok) {
+                const urlData = await urlRes.json();
+                return { ...photo, url: urlData.url };
+              }
+            } catch (err) {
+              console.error(`Erro ao buscar URL da foto ${photo.id}:`, err);
+            }
+            return { ...photo };
+          })
+        );
+        setPhotos(photosWithUrls);
       } catch (err: any) {
         setError(err.message || "Erro ao carregar ensaio");
       } finally {
@@ -112,6 +132,7 @@ export default function EditEnsaioPage() {
           status,
           coverImageKey: coverImageKey.trim() || null,
           termPdfKey: termPdfKey.trim() || null,
+          d4signDocumentId: d4signDownloadUrl.trim() || null,
           syncFolderUrl: syncFolderUrl.trim() || null,
         }),
       });
@@ -132,68 +153,32 @@ export default function EditEnsaioPage() {
     }
   }
 
-  // Adicionar foto
-  async function handleAddPhoto(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newPhotoUrl.trim()) {
-      setError("URL da foto é obrigatória.");
-      return;
-    }
-
-    setAddingPhoto(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/arquiteto/ensaios/${id}/photos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: newPhotoUrl.trim(),
-          sortOrder: photos.length,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Erro ao adicionar foto");
-      }
-
-      const data = await res.json();
-      setPhotos([...photos, data.photo]);
-      setNewPhotoUrl("");
-      setSuccess("Foto adicionada com sucesso!");
-    } catch (err: any) {
-      setError(err.message || "Erro ao adicionar foto");
-    } finally {
-      setAddingPhoto(false);
-    }
-  }
-
-  // Remover foto
-  async function handleRemovePhoto(photoId: string) {
-    if (!confirm("Tem certeza que deseja remover esta foto?")) {
-      return;
-    }
-
-    setRemovingPhoto(photoId);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/arquiteto/ensaios/${id}/photos/${photoId}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Erro ao remover foto");
-      }
-
-      setPhotos(photos.filter((p) => p.id !== photoId));
-      setSuccess("Foto removida com sucesso!");
-    } catch (err: any) {
-      setError(err.message || "Erro ao remover foto");
-    } finally {
-      setRemovingPhoto(null);
+  // Handler para atualizar lista de fotos após mudanças
+  async function handlePhotosChange(updatedPhotos: Array<{ id: string; storageKey: string; sortOrder: number; url?: string }>) {
+    // Recarregar URLs assinadas
+    const photosWithUrls = await Promise.all(
+      updatedPhotos.map(async (photo) => {
+        if (photo.url) return photo;
+        try {
+          const urlRes = await fetch(`/api/ensaios/${id}/photos/${photo.id}/url`, {
+            credentials: "include",
+          });
+          if (urlRes.ok) {
+            const urlData = await urlRes.json();
+            return { ...photo, url: urlData.url };
+          }
+        } catch (err) {
+          console.error(`Erro ao buscar URL da foto ${photo.id}:`, err);
+        }
+        return photo;
+      })
+    );
+    setPhotos(photosWithUrls);
+    
+    // Mostrar mensagem de sucesso se fotos foram adicionadas
+    if (photosWithUrls.length > photos.length) {
+      setSuccess(`${photosWithUrls.length - photos.length} foto(s) adicionada(s) com sucesso!`);
+      setTimeout(() => setSuccess(null), 3000);
     }
   }
 
@@ -281,23 +266,12 @@ export default function EditEnsaioPage() {
             </div>
 
             <div>
-              <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
-                Descrição
-              </label>
-              <textarea
+              <RichTextField
+                label="Descrição"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 disabled={saving}
-                rows={3}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 14,
-                  fontFamily: "inherit",
-                  resize: "vertical",
-                }}
+                placeholder="Descrição do ensaio..."
               />
             </div>
 
@@ -365,15 +339,51 @@ export default function EditEnsaioPage() {
           <div style={{ display: "grid", gap: "1rem" }}>
             <div>
               <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
-                Chave da Foto de Capa (R2) *
+                Foto de Capa
               </label>
+              {!coverImageKey && (
+                <div style={{ marginBottom: "0.5rem", padding: "0.75rem", background: "#fef3c7", borderRadius: 4, fontSize: 12, color: "#92400e" }}>
+                  ⚠️ Sem capa definida
+                </div>
+              )}
               <input
-                type="text"
-                value={coverImageKey}
-                onChange={(e) => setCoverImageKey(e.target.value)}
-                required
+                type="file"
+                accept="image/jpeg,image/jpg,image/webp,image/png"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  try {
+                    setError(null);
+                    setSuccess(null);
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("type", "cover");
+                    formData.append("ensaioId", id);
+
+                    const res = await fetch("/api/ensaios/upload", {
+                      method: "POST",
+                      credentials: "include",
+                      body: formData,
+                    });
+
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      throw new Error(data.error || "Erro ao fazer upload da capa");
+                    }
+
+                    const data = await res.json();
+                    setCoverImageKey(data.key);
+                    setSuccess("Capa enviada com sucesso! Salve o ensaio para confirmar.");
+                    setTimeout(() => setSuccess(null), 5000);
+                    // Limpar input para permitir novo upload
+                    e.target.value = "";
+                  } catch (err: any) {
+                    setError(err.message || "Erro ao fazer upload da capa");
+                    e.target.value = "";
+                  }
+                }}
                 disabled={saving}
-                placeholder="ensaio-123/cover.jpg"
                 style={{
                   width: "100%",
                   padding: "0.75rem",
@@ -382,20 +392,24 @@ export default function EditEnsaioPage() {
                   fontSize: 14,
                 }}
               />
+              {coverImageKey && (
+                <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "#dcfce7", borderRadius: 4, fontSize: 12, color: "#166534" }}>
+                  ✓ Capa definida: {coverImageKey}
+                </div>
+              )}
               <span style={{ fontSize: 12, color: "#6b7280", display: "block", marginTop: "0.25rem" }}>
-                Chave do objeto no R2 (ex: ensaio-123/cover.jpg). Nunca use URLs públicas aqui.
+                Selecione uma imagem para a capa do ensaio (JPG, PNG ou WebP, até 40 MB).
               </span>
             </div>
 
             <div>
               <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
-                Chave do Termo PDF (R2) *
+                Chave do Termo PDF (R2) <span style={{ color: "#dc2626" }}>*</span>
               </label>
               <input
                 type="text"
                 value={termPdfKey}
                 onChange={(e) => setTermPdfKey(e.target.value)}
-                required
                 disabled={saving}
                 placeholder="ensaio-123/term.pdf"
                 style={{
@@ -407,7 +421,31 @@ export default function EditEnsaioPage() {
                 }}
               />
               <span style={{ fontSize: 12, color: "#6b7280", display: "block", marginTop: "0.25rem" }}>
-                Chave do objeto no R2 (ex: ensaio-123/term.pdf). Nunca use URLs públicas aqui.
+                Chave do objeto no R2 (ex: ensaio-123/term.pdf). Obrigatório se não houver link D4Sign.
+              </span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 14, fontWeight: 500, display: "block", marginBottom: "0.5rem" }}>
+                URL de Download do D4Sign (Opcional)
+              </label>
+              <input
+                type="url"
+                value={d4signDownloadUrl}
+                onChange={(e) => setD4signDownloadUrl(e.target.value)}
+                disabled={saving}
+                placeholder="https://d4sign.com.br/documento/..."
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontFamily: "monospace",
+                }}
+              />
+              <span style={{ fontSize: 12, color: "#6b7280", display: "block", marginTop: "0.25rem" }}>
+                URL de download do documento assinado no D4Sign. Se preenchido, terá prioridade sobre o PDF local.
               </span>
             </div>
 
@@ -458,132 +496,11 @@ export default function EditEnsaioPage() {
             border: "1px solid #e5e7eb",
           }}
         >
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: "1rem" }}>
-            Melhores Fotos ({photos.length}/30)
-          </h2>
-          
-          {/* Adicionar foto */}
-          <form onSubmit={handleAddPhoto} style={{ marginBottom: "1.5rem" }}>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input
-                type="url"
-                value={newPhotoUrl}
-                onChange={(e) => setNewPhotoUrl(e.target.value)}
-                placeholder="https://exemplo.com/foto.jpg"
-                disabled={addingPhoto || photos.length >= 30}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 14,
-                }}
-              />
-              <button
-                type="submit"
-                disabled={addingPhoto || photos.length >= 30 || !newPhotoUrl.trim()}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: addingPhoto || photos.length >= 30 ? "#9ca3af" : "#111827",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 6,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: addingPhoto || photos.length >= 30 ? "not-allowed" : "pointer",
-                }}
-              >
-                {addingPhoto ? "Adicionando..." : "Adicionar Foto"}
-              </button>
-            </div>
-            {photos.length >= 30 && (
-              <p style={{ fontSize: 12, color: "#dc2626", marginTop: "0.5rem" }}>
-                Limite de 30 fotos atingido. Remova uma foto antes de adicionar outra.
-              </p>
-            )}
-          </form>
-
-          {/* Lista de fotos */}
-          {photos.length === 0 ? (
-            <p style={{ color: "#6b7280", fontSize: 14 }}>
-              Nenhuma foto adicionada ainda. Use o formulário acima para adicionar fotos.
-            </p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                gap: "1rem",
-              }}
-            >
-              {photos.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  style={{
-                    position: "relative",
-                    borderRadius: 8,
-                    overflow: "hidden",
-                    border: "1px solid #e5e7eb",
-                    aspectRatio: "1",
-                    background: "#f9fafb",
-                  }}
-                >
-                  <img
-                    src={photo.imageUrl}
-                    alt={`Foto ${index + 1}`}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                      const parent = (e.target as HTMLImageElement).parentElement;
-                      if (parent) {
-                        parent.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #9ca3af; font-size: 12px;">Imagem não disponível</div>`;
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePhoto(photo.id)}
-                    disabled={removingPhoto === photo.id}
-                    style={{
-                      position: "absolute",
-                      top: "0.5rem",
-                      right: "0.5rem",
-                      padding: "0.5rem",
-                      background: "rgba(220, 38, 38, 0.9)",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: removingPhoto === photo.id ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {removingPhoto === photo.id ? "..." : "✕"}
-                  </button>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "0.5rem",
-                      left: "0.5rem",
-                      padding: "0.25rem 0.5rem",
-                      background: "rgba(0,0,0,0.7)",
-                      color: "#fff",
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontWeight: 500,
-                    }}
-                  >
-                    #{index + 1}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <EnsaioPhotosUpload
+            ensaioId={id}
+            existingPhotos={photos.map(p => ({ id: p.id, storageKey: p.storageKey, sortOrder: p.sortOrder, url: p.url }))}
+            onPhotosChange={handlePhotosChange}
+          />
         </div>
 
         {/* Mensagens de erro/sucesso */}

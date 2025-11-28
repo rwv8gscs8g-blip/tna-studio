@@ -5,6 +5,7 @@ import CreateUserForm from "./components/CreateUserForm";
 import EditUserButton from "./components/EditUserButton";
 import { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
+import UserAvatar from "@/components/avatars/UserAvatar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -143,37 +144,13 @@ export default async function AdminUsersPage() {
                 return (
                   <tr key={user.id} style={{ borderTop: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "0.85rem" }}>
-                      {user.profileImage ? (
-                        <img
-                          src={user.profileImage}
-                          alt={user.name || "Usuário"}
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            border: "1px solid #e5e7eb",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            backgroundColor: "#e5e7eb",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#6b7280",
-                            fontSize: 16,
-                            fontWeight: 600,
-                            border: "1px solid #e5e7eb",
-                          }}
-                        >
-                          {initial}
-                        </div>
-                      )}
+                      <UserAvatar
+                        userId={user.id}
+                        profileImage={user.profileImage}
+                        name={user.name}
+                        email={user.email}
+                        size={40}
+                      />
                     </td>
                     <td style={{ padding: "0.85rem" }}>{user.name ?? "—"}</td>
                     <td style={{ padding: "0.85rem" }}>{user.email}</td>

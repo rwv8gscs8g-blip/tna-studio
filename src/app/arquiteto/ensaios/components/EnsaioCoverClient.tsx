@@ -17,7 +17,9 @@ export default function EnsaioCoverClient({ ensaioId, title }: EnsaioCoverClient
 
   useEffect(() => {
     // Buscar cover via API protegida
-    fetch(`/api/ensaios/${ensaioId}/cover`)
+    fetch(`/api/ensaios/${ensaioId}/cover`, {
+      credentials: "include",
+    })
       .then((res) => {
         if (!res.ok) {
           if (res.status === 404) {

@@ -18,7 +18,9 @@ export default function EnsaioCoverClient({ ensaioId, title }: EnsaioCoverClient
 
   useEffect(() => {
     // Buscar cover via API protegida
-    fetch(`/api/ensaios/${ensaioId}/cover`)
+    fetch(`/api/ensaios/${ensaioId}/cover`, {
+      credentials: "include",
+    })
       .then((res) => {
         if (!res.ok) {
           if (res.status === 404) {
@@ -47,37 +49,62 @@ export default function EnsaioCoverClient({ ensaioId, title }: EnsaioCoverClient
   }, [ensaioId]);
 
   if (loading) {
-    return null; // Não mostra nada enquanto carrega
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f9fafb",
+          color: "#9ca3af",
+          fontSize: 14,
+        }}
+      >
+        Carregando capa...
+      </div>
+    );
   }
 
   if (error || !coverUrl) {
-    return null; // Não mostra nada se não houver cover
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f9fafb",
+          color: "#9ca3af",
+          fontSize: 14,
+        }}
+      >
+        Sem capa definida
+      </div>
+    );
   }
 
   return (
-    <div
+    <img
+      src={coverUrl}
+      alt={`Capa: ${title}`}
       style={{
-        marginBottom: "2rem",
-        borderRadius: 16,
-        overflow: "hidden",
-        boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
       }}
-    >
-      <img
-        src={coverUrl}
-        alt={`Capa: ${title}`}
-        style={{
-          width: "100%",
-          height: "auto",
-          maxHeight: "500px",
-          objectFit: "cover",
-          display: "block",
-        }}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
-      />
-    </div>
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.style.display = "none";
+        const parent = target.parentElement;
+        if (parent) {
+          parent.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #9ca3af; font-size: 14px;">Sem capa</div>`;
+        }
+      }}
+    />
   );
 }
 

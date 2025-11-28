@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import CurrencyDisplay from "@/app/components/CurrencyDisplay";
 
 interface ProductCardProps {
   produto: {
     id: string;
+    slug: string | null;
     nome: string;
-    descricao?: string | null;
-    preco: number;
+    shortDescription?: string | null;
+    precoEuro?: number | null;
     categoria?: string | null;
-    isPromocao: boolean;
-    isTfp: boolean;
     coverImageKey?: string | null;
   };
 }
@@ -23,7 +23,9 @@ export default function ProductCard({ produto }: ProductCardProps) {
   useEffect(() => {
     if (produto.coverImageKey) {
       // Buscar URL assinada via API
-      fetch(`/api/produtos/${produto.id}/cover`)
+      fetch(`/api/produtos/${produto.id}/cover`, {
+        credentials: "include",
+      })
         .then((res) => res.json())
         .then((data) => {
           if (data.signedUrl) {
@@ -41,17 +43,13 @@ export default function ProductCard({ produto }: ProductCardProps) {
     }
   }, [produto.id, produto.coverImageKey]);
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return "TFP / Permuta";
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(price);
-  };
+
+  // Usar slug se disponível, caso contrário usar id como fallback
+  const productUrl = produto.slug ? `/loja/${produto.slug}` : `/loja/produto/${produto.id}`;
 
   return (
     <Link
-      href={`/loja/produto/${produto.id}`}
+      href={productUrl}
       style={{
         display: "block",
         textDecoration: "none",
@@ -79,39 +77,22 @@ export default function ProductCard({ produto }: ProductCardProps) {
           e.currentTarget.style.boxShadow = "none";
         }}
       >
-        {/* Badges de Promoção/TFP */}
-        {(produto.isPromocao || produto.isTfp) && (
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
-            {produto.isTfp && (
-              <span
-                style={{
-                  padding: "0.25rem 0.75rem",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  backgroundColor: "#fef3c7",
-                  color: "#92400e",
-                  textTransform: "uppercase",
-                }}
-              >
-                🔥 TFP / Permuta
-              </span>
-            )}
-            {produto.isPromocao && !produto.isTfp && (
-              <span
-                style={{
-                  padding: "0.25rem 0.75rem",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  backgroundColor: "#dcfce7",
-                  color: "#166534",
-                  textTransform: "uppercase",
-                }}
-              >
-                Promoção
-              </span>
-            )}
+        {/* Badge de Categoria */}
+        {produto.categoria && (
+          <div style={{ marginBottom: "0.75rem" }}>
+            <span
+              style={{
+                padding: "0.25rem 0.75rem",
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 700,
+                backgroundColor: produto.categoria === "Cortesia" ? "#fef3c7" : "#dcfce7",
+                color: produto.categoria === "Cortesia" ? "#92400e" : "#166534",
+                textTransform: "uppercase",
+              }}
+            >
+              {produto.categoria}
+            </span>
           </div>
         )}
 
@@ -158,7 +139,7 @@ export default function ProductCard({ produto }: ProductCardProps) {
           >
             {produto.nome}
           </h3>
-          {produto.descricao && (
+          {produto.shortDescription && (
             <p
               style={{
                 fontSize: 14,
@@ -172,7 +153,7 @@ export default function ProductCard({ produto }: ProductCardProps) {
                 WebkitBoxOrient: "vertical",
               }}
             >
-              {produto.descricao}
+              {produto.shortDescription}
             </p>
           )}
           <div
@@ -183,15 +164,14 @@ export default function ProductCard({ produto }: ProductCardProps) {
               marginTop: "auto",
             }}
           >
-            <span
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: produto.isTfp ? "#92400e" : "#111827",
-              }}
-            >
-              {formatPrice(produto.preco)}
-            </span>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>
+              <CurrencyDisplay 
+                valueEuro={produto.precoEuro} 
+                highlight={false}
+                showBase={false}
+                showNote={false}
+              />
+            </div>
             <span
               style={{
                 padding: "0.5rem 1rem",

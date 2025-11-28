@@ -12,8 +12,12 @@ export default async function LojaPage() {
     redirect("/signin");
   }
 
-  // Buscar todos os produtos
+  // Buscar todos os produtos ativos
   const produtos = await prisma.produto.findMany({
+    where: {
+      deletedAt: null,
+      isActive: true,
+    },
     include: {
       _count: {
         select: {
@@ -23,16 +27,17 @@ export default async function LojaPage() {
       },
     },
     orderBy: [
-      { isTfp: "desc" }, // TFP primeiro
-      { isPromocao: "desc" }, // Promoções depois
+      { displayOrder: "asc" }, // Por ordem de exibição
+      { categoria: "asc" },
       { nome: "asc" },
     ],
   });
 
   // Separar produtos por categoria
-  const produtosTfp = produtos.filter((p) => p.isTfp);
-  const produtosPromocao = produtos.filter((p) => p.isPromocao && !p.isTfp);
-  const produtosNormais = produtos.filter((p) => !p.isPromocao && !p.isTfp);
+  const produtosCortesia = produtos.filter((p) => p.categoria === "Cortesia" || !p.precoEuro);
+  const produtosServico = produtos.filter((p) => p.categoria === "Serviço" && p.precoEuro);
+  const produtosBook = produtos.filter((p) => p.categoria === "Book" && p.precoEuro);
+  const produtosOutros = produtos.filter((p) => !["Cortesia", "Serviço", "Book"].includes(p.categoria || ""));
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1400px", margin: "0 auto" }}>
@@ -48,53 +53,11 @@ export default async function LojaPage() {
         </p>
       </header>
 
-      {/* Seção TFP / Permuta */}
-      {produtosTfp.length > 0 && (
-        <section style={{ marginBottom: "3rem" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              marginBottom: "1.5rem",
-            }}
-          >
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827" }}>
-              🔥 Promoção / Permuta TFP
-            </h2>
-            <span
-              style={{
-                padding: "0.25rem 0.75rem",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                backgroundColor: "#fef3c7",
-                color: "#92400e",
-                textTransform: "uppercase",
-              }}
-            >
-              Em Destaque
-            </span>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            {produtosTfp.map((produto) => (
-              <ProductCard key={produto.id} produto={produto} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Seção Promoções */}
-      {produtosPromocao.length > 0 && (
+      {/* Seção Books */}
+      {produtosBook.length > 0 && (
         <section style={{ marginBottom: "3rem" }}>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: "1.5rem", color: "#111827" }}>
-            Promoções
+            📚 Books
           </h2>
           <div
             style={{
@@ -103,18 +66,58 @@ export default async function LojaPage() {
               gap: "1.5rem",
             }}
           >
-            {produtosPromocao.map((produto) => (
+            {produtosBook.map((produto) => (
               <ProductCard key={produto.id} produto={produto} />
             ))}
           </div>
         </section>
       )}
 
-      {/* Seção Produtos Normais */}
-      {produtosNormais.length > 0 && (
+      {/* Seção Serviços */}
+      {produtosServico.length > 0 && (
+        <section style={{ marginBottom: "3rem" }}>
+          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: "1.5rem", color: "#111827" }}>
+            🎯 Serviços
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "1.5rem",
+            }}
+          >
+            {produtosServico.map((produto) => (
+              <ProductCard key={produto.id} produto={produto} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Seção Cortesias */}
+      {produtosCortesia.length > 0 && (
+        <section style={{ marginBottom: "3rem" }}>
+          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: "1.5rem", color: "#111827" }}>
+            🎁 Cortesias
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "1.5rem",
+            }}
+          >
+            {produtosCortesia.map((produto) => (
+              <ProductCard key={produto.id} produto={produto} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Seção Outros */}
+      {produtosOutros.length > 0 && (
         <section>
           <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: "1.5rem", color: "#111827" }}>
-            Todos os Produtos
+            Outros Produtos
           </h2>
           <div
             style={{
@@ -123,7 +126,7 @@ export default async function LojaPage() {
               gap: "1.5rem",
             }}
           >
-            {produtosNormais.map((produto) => (
+            {produtosOutros.map((produto) => (
               <ProductCard key={produto.id} produto={produto} />
             ))}
           </div>

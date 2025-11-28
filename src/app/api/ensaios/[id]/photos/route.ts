@@ -36,13 +36,26 @@ export async function GET(
 
     const userRole = (session.user as any)?.role as Role;
     const userId = (session.user as any)?.id;
-    const userCpf = (session.user as any)?.cpf as string | null;
+    
+    // Buscar CPF do usuário do banco (garantir que está normalizado)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { cpf: true },
+    });
+    
+    const userCpf = user?.cpf ? user.cpf.replace(/\D/g, "") : null; // Normalizar CPF (apenas números)
+
+    const { id } = await params;
 
     // Buscar ensaio com fotos
-    const ensaio = await prisma.ensaio.findUnique({
-      where: { id: await params.then(p => p.id) },
+    const ensaio = await prisma.ensaio.findFirst({
+      where: {
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
       include: {
         photos: {
+          where: { deletedAt: null }, // Apenas fotos não deletadas
           orderBy: [
             { sortOrder: "asc" },
             { createdAt: "desc" },
@@ -58,6 +71,9 @@ export async function GET(
       );
     }
 
+    // Normalizar CPF do ensaio para comparação (apenas números)
+    const ensaioCpf = ensaio.subjectCpf ? ensaio.subjectCpf.replace(/\D/g, "") : null;
+
     // Verificar permissões
     if (userRole === Role.ARQUITETO || userRole === Role.ADMIN) {
       // ARQUITETO: pode ver seus próprios ensaios
@@ -70,7 +86,9 @@ export async function GET(
       }
     } else if (userRole === Role.MODELO) {
       // MODELO: só pode ver seus próprios ensaios PUBLICADOS
-      if (!userCpf || ensaio.subjectCpf !== userCpf || ensaio.status !== "PUBLISHED") {
+      // Comparar CPFs normalizados (apenas números)
+      if (!userCpf || !ensaioCpf || ensaioCpf !== userCpf || ensaio.status !== "PUBLISHED") {
+        console.warn(`[API] Acesso negado para MODELO: userCpf=${userCpf}, ensaioCpf=${ensaioCpf}, status=${ensaio.status}`);
         return NextResponse.json(
           { error: "Acesso negado. Você só pode ver seus próprios ensaios publicados." },
           { status: 403 }

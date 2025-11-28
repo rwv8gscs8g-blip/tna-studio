@@ -221,6 +221,10 @@ export async function PATCH(
       updateData.termPdfKey = body.termPdfKey?.trim() || null;
     }
 
+    if (body.d4signDocumentId !== undefined) {
+      updateData.d4signDocumentId = body.d4signDocumentId?.trim() || null;
+    }
+
     if (body.syncFolderUrl !== undefined) {
       updateData.syncFolderUrl = body.syncFolderUrl?.trim() || null;
     }

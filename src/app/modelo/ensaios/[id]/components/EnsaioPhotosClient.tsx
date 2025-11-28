@@ -7,6 +7,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MasonryGrid from "@/components/galleries/MasonryGrid";
 
 interface Photo {
   id: string;
@@ -26,7 +27,9 @@ export default function EnsaioPhotosClient({ ensaioId }: EnsaioPhotosClientProps
 
   useEffect(() => {
     // Buscar fotos via API protegida (com URLs assinadas)
-    fetch(`/api/ensaios/${ensaioId}/photos`)
+    fetch(`/api/ensaios/${ensaioId}/photos`, {
+      credentials: "include",
+    })
       .then((res) => {
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
@@ -74,65 +77,13 @@ export default function EnsaioPhotosClient({ ensaioId }: EnsaioPhotosClientProps
     );
   }
 
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-        gap: "1rem",
-      }}
-    >
-      {photos.map((photo) => (
-        <div
-          key={photo.id}
-          style={{
-            position: "relative",
-            borderRadius: 8,
-            overflow: "hidden",
-            border: "1px solid #e5e7eb",
-            aspectRatio: "1",
-            background: "#f9fafb",
-          }}
-        >
-          <img
-            src={photo.signedUrl}
-            alt={`Foto ${photo.sortOrder + 1}`}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-              const parent = target.parentElement;
-              if (parent) {
-                parent.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #9ca3af; font-size: 12px;">Imagem não disponível</div>`;
-              }
-            }}
-          />
-          <a
-            href={photo.signedUrl}
-            download
-            style={{
-              position: "absolute",
-              bottom: "0.5rem",
-              right: "0.5rem",
-              padding: "0.5rem",
-              background: "rgba(0,0,0,0.7)",
-              color: "#fff",
-              borderRadius: 6,
-              textDecoration: "none",
-              fontSize: 12,
-              fontWeight: 500,
-            }}
-          >
-            ⬇ Baixar
-          </a>
-        </div>
-      ))}
-    </div>
-  );
+  // Converter fotos para formato do MasonryGrid
+  const photosForMasonry = photos.map((photo) => ({
+    id: photo.id,
+    url: photo.signedUrl,
+    alt: `Foto ${photo.sortOrder + 1}`,
+  }));
+
+  return <MasonryGrid photos={photosForMasonry} columns={3} gap="1rem" />;
 }
 

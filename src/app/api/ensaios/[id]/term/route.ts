@@ -36,13 +36,23 @@ export async function GET(
 
     const userRole = (session.user as any)?.role as Role;
     const userId = (session.user as any)?.id;
-    const userCpf = (session.user as any)?.cpf as string | null;
+    
+    // Buscar CPF do usuário do banco (garantir que está normalizado)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { cpf: true },
+    });
+    
+    const userCpf = user?.cpf ? user.cpf.replace(/\D/g, "") : null; // Normalizar CPF (apenas números)
 
     const { id } = await params;
 
     // Buscar ensaio
-    const ensaio = await prisma.ensaio.findUnique({
-      where: { id },
+    const ensaio = await prisma.ensaio.findFirst({
+      where: {
+        id,
+        deletedAt: null, // Apenas ensaios não deletados
+      },
     });
 
     if (!ensaio) {
@@ -51,6 +61,9 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Normalizar CPF do ensaio para comparação (apenas números)
+    const ensaioCpf = ensaio.subjectCpf ? ensaio.subjectCpf.replace(/\D/g, "") : null;
 
     // Verificar permissões
     if (userRole === Role.ARQUITETO || userRole === Role.ADMIN) {
@@ -61,7 +74,8 @@ export async function GET(
         );
       }
     } else if (userRole === Role.MODELO) {
-      if (!userCpf || ensaio.subjectCpf !== userCpf || ensaio.status !== "PUBLISHED") {
+      // Comparar CPFs normalizados (apenas números)
+      if (!userCpf || !ensaioCpf || ensaioCpf !== userCpf || ensaio.status !== "PUBLISHED") {
         return NextResponse.json(
           { error: "Acesso negado." },
           { status: 403 }

@@ -77,17 +77,44 @@ export async function PATCH(
     const { id } = await params;
     const data = await req.json();
 
+    // Gerar slug se nome mudou
+    let updateData: any = {};
+    if (data.nome) {
+      const nome = data.nome.trim();
+      updateData.nome = nome;
+      // Gerar slug a partir do nome
+      const slug = nome
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      // Verificar se slug já existe para outro produto
+      const existing = await prisma.produto.findUnique({ where: { slug } });
+      if (!existing || existing.id === id) {
+        updateData.slug = slug;
+      } else {
+        // Adicionar sufixo numérico
+        let finalSlug = slug;
+        let counter = 1;
+        while (await prisma.produto.findUnique({ where: { slug: finalSlug } })) {
+          finalSlug = `${slug}-${counter}`;
+          counter++;
+        }
+        updateData.slug = finalSlug;
+      }
+    }
+    if (data.shortDescription !== undefined) updateData.shortDescription = data.shortDescription?.trim() || null;
+    if (data.fullDescription !== undefined) updateData.fullDescription = data.fullDescription?.trim() || null;
+    if (data.precoEuro !== undefined) updateData.precoEuro = data.precoEuro !== null ? parseFloat(data.precoEuro) : null;
+    if (data.categoria !== undefined) updateData.categoria = data.categoria?.trim() || null;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive === true;
+    if (data.coverImageKey !== undefined) updateData.coverImageKey = data.coverImageKey?.trim() || null;
+    if (data.displayOrder !== undefined) updateData.displayOrder = parseInt(data.displayOrder) || 0;
+
     const produto = await prisma.produto.update({
       where: { id },
-      data: {
-        ...(data.nome && { nome: data.nome.trim() }),
-        ...(data.descricao !== undefined && { descricao: data.descricao?.trim() || null }),
-        ...(data.preco !== undefined && { preco: parseFloat(data.preco) }),
-        ...(data.categoria !== undefined && { categoria: data.categoria?.trim() || null }),
-        ...(data.isPromocao !== undefined && { isPromocao: data.isPromocao === true }),
-        ...(data.isTfp !== undefined && { isTfp: data.isTfp === true }),
-        ...(data.coverImageKey !== undefined && { coverImageKey: data.coverImageKey?.trim() || null }),
-      },
+      data: updateData,
     });
 
     return NextResponse.json({ produto }, { status: 200 });

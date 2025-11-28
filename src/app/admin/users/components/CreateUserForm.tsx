@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { formatCpf, parseCpf } from "@/lib/formatters";
 
 type Props = {
   roles: string[];
@@ -64,7 +65,10 @@ export default function CreateUserForm({ roles }: Props) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        cpf: parseCpf(form.cpf), // Garantir que CPF está sem formatação
+      }),
     });
 
     if (!res.ok) {
@@ -272,13 +276,25 @@ export default function CreateUserForm({ roles }: Props) {
         type="submit"
         disabled={loading || uploadingImage}
         style={{
-          padding: "0.75rem",
-          borderRadius: 10,
-          background: "#111827",
+          padding: "0.75rem 1.5rem",
+          borderRadius: 8,
+          background: loading || uploadingImage ? "#9ca3af" : "#2563eb",
           color: "#fff",
           fontWeight: 600,
           border: "none",
           cursor: loading || uploadingImage ? "not-allowed" : "pointer",
+          fontSize: 14,
+          transition: "all 0.2s",
+        }}
+        onMouseEnter={(e) => {
+          if (!loading && !uploadingImage) {
+            e.currentTarget.style.background = "#1d4ed8";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!loading && !uploadingImage) {
+            e.currentTarget.style.background = "#2563eb";
+          }
         }}
       >
         {uploadingImage ? "Enviando foto..." : loading ? "Criando..." : "Adicionar usuário"}

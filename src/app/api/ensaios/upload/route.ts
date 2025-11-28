@@ -12,8 +12,8 @@ import { Role } from "@prisma/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const MAX_PDF_SIZE = 3 * 1024 * 1024; // 3 MB para PDFs
+const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40 MB (dev)
+const MAX_PDF_SIZE = 40 * 1024 * 1024; // 40 MB para PDFs (dev)
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
 const ALLOWED_PDF_TYPES = ["application/pdf"];
 
@@ -24,16 +24,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    const currentUserId = (session.user as any)?.id;
     const userRole = (session.user as any)?.role as Role;
     
-    // Apenas ARQUITETO pode fazer upload
-    if (userRole !== Role.ARQUITETO) {
-      return NextResponse.json({ error: "Acesso negado. Apenas ARQUITETO pode fazer upload." }, { status: 403 });
-    }
-
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const type = formData.get("type") as string; // "cover", "term", "photo"
+    
+    // Apenas ARQUITETO pode fazer upload
+    if (userRole !== Role.ARQUITETO) {
+      console.warn(`[Upload Ensaio] Acesso negado: userId=${currentUserId}, role=${userRole}, type=${type}`);
+      return NextResponse.json({ 
+        error: "Acesso negado. Apenas ARQUITETO pode fazer upload.",
+        reason: "permission_denied",
+        currentRole: userRole,
+      }, { status: 403 });
+    }
     const ensaioId = formData.get("ensaioId") as string | null;
 
     if (!file) {

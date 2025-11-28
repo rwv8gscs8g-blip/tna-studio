@@ -189,8 +189,9 @@ export async function POST(req: NextRequest) {
             produto: {
               select: {
                 id: true,
+                slug: true,
                 nome: true,
-                preco: true,
+                precoEuro: true,
               },
             },
           },

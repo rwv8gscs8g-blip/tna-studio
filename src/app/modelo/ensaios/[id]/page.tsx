@@ -39,9 +39,18 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
 
   const { id } = await params;
 
+  // Normalizar CPF do usuário (apenas números) para comparação
+  const userCpfNormalized = user.cpf.replace(/\D/g, "");
+
   // Buscar ensaio (sem expor syncFolderUrl diretamente - acesso via página protegida)
-  const ensaio = await prisma.ensaio.findUnique({
-    where: { id },
+  // IMPORTANTE: Verificar acesso ANTES de buscar o ensaio completo
+  // Buscar todos os ensaios com o ID e depois filtrar por CPF normalizado
+  const allEnsaios = await prisma.ensaio.findMany({
+    where: {
+      id,
+      status: "PUBLISHED", // Apenas ensaios publicados
+      deletedAt: null, // Apenas ensaios não deletados
+    },
     select: {
       id: true,
       title: true,
@@ -65,16 +74,14 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
     },
   });
 
+  // Filtrar por CPF normalizado (comparação manual após buscar)
+  const ensaio = allEnsaios.find((e) => {
+    const ensaioCpfNormalized = e.subjectCpf ? e.subjectCpf.replace(/\D/g, "") : "";
+    return ensaioCpfNormalized === userCpfNormalized;
+  });
+
   if (!ensaio) {
-    notFound();
-  }
-
-  // Verificar se o ensaio é da MODELO logada e está publicado
-  if (ensaio.subjectCpf !== user.cpf) {
-    redirect("/modelo/ensaios");
-  }
-
-  if (ensaio.status !== "PUBLISHED") {
+    // Ensaio não encontrado, não é da MODELO, não está publicado ou foi deletado
     redirect("/modelo/ensaios");
   }
 
@@ -203,67 +210,110 @@ export default async function ModeloEnsaioDetailPage({ params }: PageProps) {
         </h2>
         
         {/* Mensagens informativas para MODELO */}
-        <div
-          style={{
-            padding: "1rem",
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
-            borderRadius: 8,
-            marginBottom: "1rem",
-            fontSize: 14,
-            color: "#065f46",
-          }}
-        >
-          <p style={{ marginBottom: "0.5rem" }}>
-            <strong>ℹ️ Informação:</strong> As 30 fotos exibidas aqui são apenas uma prévia.
-          </p>
-          <p style={{ marginBottom: "0.5rem" }}>
-            O ensaio completo está disponível em alta resolução no link seguro do Sync.com.
-          </p>
-          <p>
-            O contrato assinado está disponível em PDF acima.
-          </p>
-        </div>
+        {(ensaio.photos && ensaio.photos.length > 0) || ensaio.syncFolderUrl ? (
+          <div
+            style={{
+              padding: "1rem",
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
+              borderRadius: 8,
+              marginBottom: "1rem",
+              fontSize: 14,
+              color: "#065f46",
+            }}
+          >
+            <p style={{ marginBottom: "0.5rem" }}>
+              <strong>ℹ️ Informação:</strong> As fotos exibidas aqui são uma prévia do ensaio completo.
+            </p>
+            {ensaio.syncFolderUrl && (
+              <p style={{ marginBottom: "0.5rem" }}>
+                O ensaio completo está disponível em alta resolução no link seguro do Sync.com.
+              </p>
+            )}
+            <p>
+              O contrato assinado está disponível em PDF acima.
+            </p>
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: "1rem",
+              background: "#f9fafb",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              marginBottom: "1rem",
+              fontSize: 14,
+              color: "#6b7280",
+            }}
+          >
+            <strong>ℹ️ Informação:</strong> Seu ensaio ainda está em preparação. Em breve as imagens estarão disponíveis aqui.
+          </div>
+        )}
         
         {/* Fotos via API protegida com URLs assinadas efêmeras */}
         <EnsaioPhotosClient ensaioId={ensaio.id} />
       </div>
 
       {/* Link protegido para Sync.com - acesso via página interna */}
-      {ensaio.syncFolderUrl && (
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 12,
-            padding: "1.5rem",
-            border: "1px solid #e5e7eb",
-            marginBottom: "2rem",
-          }}
-        >
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: "1rem" }}>
-            Ensaio Completo em Alta Resolução
-          </h2>
-          <p style={{ color: "#6b7280", fontSize: 14, marginBottom: "1rem" }}>
-            Os arquivos completos em alta resolução ficam armazenados de forma segura no Sync.com. 
-            O acesso é protegido pela sua sessão autenticada no TNA-Studio.
-          </p>
-          <Link
-            href={`/ensaios/${ensaio.id}/sync-preview`}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          padding: "1.5rem",
+          border: "1px solid #e5e7eb",
+          marginBottom: "2rem",
+        }}
+      >
+        <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: "1rem" }}>
+          Ensaio Completo em Alta Resolução
+        </h2>
+        {ensaio.syncFolderUrl ? (
+          <>
+            <p style={{ color: "#6b7280", fontSize: 14, marginBottom: "1rem" }}>
+              Os arquivos completos em alta resolução ficam armazenados de forma segura no Sync.com. 
+              O acesso é protegido pela sua sessão autenticada no TNA-Studio.
+            </p>
+            <Link
+              href={`/ensaios/${ensaio.id}/sync-preview`}
+              style={{
+                display: "inline-block",
+                padding: "0.75rem 1.5rem",
+                background: "var(--color-gold-primary)",
+                color: "#fff",
+                borderRadius: 8,
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 600,
+                transition: "all var(--transition-base)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--color-gold-bright)";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--color-gold-primary)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              Ver ensaio completo em alta resolução →
+            </Link>
+          </>
+        ) : (
+          <div
             style={{
-              display: "inline-block",
-              padding: "0.75rem 1.5rem",
-              background: "#111827",
-              color: "#fff",
+              padding: "1rem",
+              background: "#fef3c7",
+              border: "1px solid #fbbf24",
               borderRadius: 8,
-              textDecoration: "none",
+              color: "#92400e",
               fontSize: 14,
-              fontWeight: 600,
             }}
           >
-            Ver ensaio completo em alta resolução →
-          </Link>
-        </div>
-      )}
+            <strong>ℹ️ Informação:</strong> Link seguro ainda não disponibilizado para este ensaio. 
+            Em breve, o responsável pelo ensaio disponibilizará o acesso completo.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -139,15 +139,15 @@ model Gallery {
 }
 
 model GalleryAccess {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   galleryId   String
   granteeId   String
-  canDownload Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  canDownload Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
-  Gallery     Gallery  @relation(fields: [galleryId], references: [id])
-  User        User     @relation(fields: [granteeId], references: [id])
+  Gallery     Gallery   @relation(fields: [galleryId], references: [id])
+  User        User      @relation(fields: [granteeId], references: [id])
 
   @@unique([galleryId, granteeId])
   @@index([granteeId])
@@ -215,24 +215,19 @@ model Photo {
 }
 
 model TermDocument {
-  id         String   @id @default(cuid())
-  galleryId  String   @unique
+  id         String    @id @default(cuid())
+  galleryId  String    @unique
   key        String
   mimeType   String
   bytes      Int
   uploadedBy String
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   deletedAt  DateTime?
-  Gallery    Gallery  @relation(fields: [galleryId], references: [id])
+  Gallery    Gallery   @relation(fields: [galleryId], references: [id])
 
   @@index([galleryId])
   @@index([uploadedBy])
   @@index([deletedAt])
-}
-
-enum EnsaioStatus {
-  DRAFT
-  PUBLISHED
 }
 
 model Ensaio {
@@ -240,22 +235,22 @@ model Ensaio {
   title            String
   slug             String          @unique
   description      String?
-  shootDate        DateTime? // Data do ensaio (obrigatório na criação, usado para ordenação)
-  status           EnsaioStatus    @default(PUBLISHED) // "DRAFT" | "PUBLISHED"
+  shootDate        DateTime?
+  status           EnsaioStatus    @default(PUBLISHED)
   createdById      String
-  subjectCpf       String // CPF do MODELO ou CLIENTE associado ao ensaio (obrigatório, apenas MODELO ou CLIENTE)
-  coverImageKey    String? // Chave R2 da foto de capa (ex: ensaio-123/cover.jpg) - nunca URL pública
-  termPdfKey       String? // Chave R2 do PDF do termo (ex: ensaio-123/term.pdf) - nunca URL pública
-  syncFolderUrl    String? // URL do link do Sync.com (MUITO SENSÍVEL - apenas para ARQUITETO/ADMIN via API protegida)
-  d4signDocumentId String? // ID do documento no D4Sign (para integração futura) - nullable
+  subjectCpf       String
+  coverImageKey    String?
+  termPdfKey       String?
+  syncFolderUrl    String?
+  d4signDocumentId String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   deletedAt        DateTime?
   createdBy        User            @relation("EnsaioCreatedBy", fields: [createdById], references: [id])
   subject          User            @relation("EnsaiosPorCpf", fields: [subjectCpf], references: [cpf])
-  photos           EnsaioPhoto[] // Lista das melhores fotos do ensaio (até 30 fotos)
-  projetos         EnsaioProjeto[] // Relação muitos-para-muitos com Projeto
-  produtos         EnsaioProduto[] // Relação muitos-para-muitos com Produto
+  photos           EnsaioPhoto[]
+  produtos         EnsaioProduto[]
+  projetos         EnsaioProjeto[]
 
   @@index([createdById])
   @@index([subjectCpf])
@@ -266,13 +261,13 @@ model Ensaio {
 }
 
 model EnsaioPhoto {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   ensaioId   String
-  ensaio     Ensaio   @relation(fields: [ensaioId], references: [id])
-  storageKey String // Chave R2 da foto (ex: ensaio-123/photo-01.jpg) - nunca URL pública, sempre gerar signed URL
-  sortOrder  Int      @default(0) // Ordem de exibição (0 = primeiro, usado para ordenar as melhores fotos)
-  createdAt  DateTime @default(now())
+  storageKey String
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
   deletedAt  DateTime?
+  ensaio     Ensaio    @relation(fields: [ensaioId], references: [id])
 
   @@index([ensaioId])
   @@index([sortOrder])
@@ -281,15 +276,17 @@ model EnsaioPhoto {
 }
 
 model Projeto {
-  id          String          @id @default(cuid())
-  name        String
-  slug        String          @unique
-  description String?
-  active      Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  deletedAt   DateTime?
-  ensaios     EnsaioProjeto[] // Relação muitos-para-muitos com Ensaio
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique
+  description     String?
+  fullDescription String?
+  rules           String?
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  ensaios         EnsaioProjeto[]
 
   @@index([slug])
   @@index([active])
@@ -297,13 +294,13 @@ model Projeto {
 }
 
 model EnsaioProjeto {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   ensaioId  String
   projetoId String
-  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id])
-  projeto   Projeto  @relation(fields: [projetoId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   deletedAt DateTime?
+  ensaio    Ensaio    @relation(fields: [ensaioId], references: [id])
+  projeto   Projeto   @relation(fields: [projetoId], references: [id])
 
   @@unique([ensaioId, projetoId])
   @@index([ensaioId])
@@ -312,35 +309,38 @@ model EnsaioProjeto {
 }
 
 model Produto {
-  id            String           @id @default(cuid())
-  nome          String           @unique
-  descricao     String?
-  preco         Float
-  categoria     String? // Ex: "Pacote", "Promoção", "TFP"
-  isPromocao    Boolean          @default(false) // Para destacar promoções
-  isTfp         Boolean          @default(false) // Para destacar TFP/Permuta
-  coverImageKey String? // Chave R2 da foto principal do produto
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  deletedAt     DateTime?
-  ensaios       EnsaioProduto[] // Relação muitos-para-muitos com Ensaio
-  photos        ProdutoPhoto[] // Mini galeria do produto (5 fotos máx)
-  intencoes     IntencaoCompra[] // Intenções de compra das modelos
+  id               String           @id @default(cuid())
+  slug             String           @unique
+  nome             String
+  shortDescription String?
+  fullDescription  String?
+  precoEuro        Float?
+  categoria        String?
+  isActive         Boolean          @default(true)
+  coverImageKey    String?
+  displayOrder     Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+  ensaios          EnsaioProduto[]
+  intencoes        IntencaoCompra[]
+  photos           ProdutoPhoto[]
 
+  @@index([slug])
+  @@index([isActive])
   @@index([categoria])
-  @@index([isPromocao])
-  @@index([isTfp])
+  @@index([displayOrder])
   @@index([deletedAt])
 }
 
 model ProdutoPhoto {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   produtoId  String
-  produto    Produto  @relation(fields: [produtoId], references: [id])
-  storageKey String // Chave R2 da foto (ex: produto-123/photo-01.jpg) - nunca URL pública
-  sortOrder  Int      @default(0) // Ordem de exibição (0 = primeiro)
-  createdAt  DateTime @default(now())
+  storageKey String
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
   deletedAt  DateTime?
+  produto    Produto   @relation(fields: [produtoId], references: [id])
 
   @@index([produtoId])
   @@index([sortOrder])
@@ -348,13 +348,13 @@ model ProdutoPhoto {
 }
 
 model EnsaioProduto {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   ensaioId  String
   produtoId String
-  ensaio    Ensaio   @relation(fields: [ensaioId], references: [id])
-  produto   Produto  @relation(fields: [produtoId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   deletedAt DateTime?
+  ensaio    Ensaio    @relation(fields: [ensaioId], references: [id])
+  produto   Produto   @relation(fields: [produtoId], references: [id])
 
   @@unique([ensaioId, produtoId])
   @@index([ensaioId])
@@ -363,15 +363,15 @@ model EnsaioProduto {
 }
 
 model IntencaoCompra {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   modeloId  String
   produtoId String
-  status    String   @default("PENDENTE") // "PENDENTE" | "APROVADA" | "REJEITADA" | "CONCLUIDA"
-  produto   Produto  @relation(fields: [produtoId], references: [id])
-  modelo    User     @relation("IntencoesCompra", fields: [modeloId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status    String    @default("PENDENTE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  modelo    User      @relation("IntencoesCompra", fields: [modeloId], references: [id])
+  produto   Produto   @relation(fields: [produtoId], references: [id])
 
   @@index([modeloId])
   @@index([produtoId])
@@ -381,7 +381,7 @@ model IntencaoCompra {
 
 model User {
   id                                                String             @id @default(cuid())
-  email                                             String             @unique // OBRIGATÓRIO
+  email                                             String             @unique
   name                                              String?
   passwordHash                                      String
   role                                              Role               @default(MODELO)
@@ -391,15 +391,15 @@ model User {
   acceptedAt                                        DateTime?
   address                                           String?
   adminMessage                                      String?
-  birthDate                                         DateTime? // OBRIGATÓRIO (idade >= 18)
+  birthDate                                         DateTime?
   city                                              String?
   country                                           String?
-  cpf                                               String?            @unique // OBRIGATÓRIO (chave para galerias)
+  cpf                                               String?            @unique
   gdprAccepted                                      Boolean            @default(false)
   lgpdAccepted                                      Boolean            @default(false)
   passport                                          String?            @unique
   personalDescription                               String?
-  phone                                             String? // OBRIGATÓRIO (formato E.164)
+  phone                                             String?
   profileImage                                      String?
   state                                             String?
   termsAccepted                                     Boolean            @default(false)
@@ -415,12 +415,17 @@ model User {
   Gallery                                           Gallery[]
   GalleryAccess                                     GalleryAccess[]
   ImageRights                                       ImageRights[]
-  OtpToken                                          OtpToken[]
   IntencoesCompra                                   IntencaoCompra[]   @relation("IntencoesCompra")
+  OtpToken                                          OtpToken[]
 
   @@index([email])
   @@index([phone])
   @@index([deletedAt])
+}
+
+enum EnsaioStatus {
+  DRAFT
+  PUBLISHED
 }
 
 enum Role {

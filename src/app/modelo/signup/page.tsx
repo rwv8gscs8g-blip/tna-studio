@@ -303,7 +303,7 @@ export default function ModeloSignupPage() {
             </Link>
           </p>
           <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>
-            Ao criar conta, você não poderá alterar seus dados. Apenas o ARQUITETO poderá gerenciar seu perfil.
+            Ao criar conta, você não poderá alterar seus dados. Apenas o responsável poderá gerenciar seu perfil.
             <br />
             <strong>Campos obrigatórios:</strong> Nome, Email, Senha, CPF, Telefone e Data de Nascimento.
           </p>

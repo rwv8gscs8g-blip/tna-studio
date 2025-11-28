@@ -19,23 +19,31 @@ export default async function ArquitetoHomePage() {
 
   const userId = (session.user as any)?.id;
 
-  // Buscar estatísticas básicas
-  const [ensaiosCount, usuariosCount] = await Promise.all([
-    prisma.ensaio.count({
-      where: { deletedAt: null },
-    }),
-    prisma.user.count({
-      where: { deletedAt: null },
-    }),
-  ]);
+  // Buscar estatísticas básicas (com tratamento de erro)
+  let ensaiosCount = 0;
+  let usuariosCount = 0;
+  
+  try {
+    [ensaiosCount, usuariosCount] = await Promise.all([
+      prisma.ensaio.count({
+        where: { deletedAt: null },
+      }),
+      prisma.user.count({
+        where: { deletedAt: null },
+      }),
+    ]);
+  } catch (error) {
+    console.error("[ArquitetoHomePage] Erro ao buscar estatísticas:", error);
+    // Continuar com valores padrão (0) se houver erro
+  }
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto", minHeight: "60vh" }}>
       <header style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: "0.5rem" }}>
+        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: "0.5rem", fontFamily: "var(--font-serif)" }}>
           Bem-vindo, Arquiteto!
         </h1>
-        <p style={{ color: "#6b7280" }}>
+        <p style={{ color: "#6b7280", fontSize: 16 }}>
           Área administrativa - TNA Studio
         </p>
       </header>
@@ -50,32 +58,26 @@ export default async function ArquitetoHomePage() {
         }}
       >
         <div
+          className="card-premium"
           style={{
-            background: "#fff",
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            padding: "1.5rem",
             textAlign: "center",
           }}
         >
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginBottom: "0.5rem" }}>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "var(--color-gold-primary)", marginBottom: "0.5rem", fontFamily: "var(--font-serif)" }}>
             {ensaiosCount}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Ensaios</div>
+          <div style={{ fontSize: 14, color: "var(--color-black-text)" }}>Ensaios</div>
         </div>
         <div
+          className="card-premium"
           style={{
-            background: "#fff",
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            padding: "1.5rem",
             textAlign: "center",
           }}
         >
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginBottom: "0.5rem" }}>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "var(--color-gold-primary)", marginBottom: "0.5rem", fontFamily: "var(--font-serif)" }}>
             {usuariosCount}
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Usuários</div>
+          <div style={{ fontSize: 14, color: "var(--color-black-text)" }}>Usuários</div>
         </div>
       </div>
 
@@ -89,16 +91,26 @@ export default async function ArquitetoHomePage() {
       >
         <Link
           href="/arquiteto/ensaios"
+          className="card-premium"
           style={{
             display: "block",
             padding: "1.5rem",
-            background: "#111827",
+            background: "var(--color-gold-primary)",
             color: "#fff",
-            borderRadius: 12,
+            borderRadius: "var(--radius-md)",
             textDecoration: "none",
             textAlign: "center",
             fontWeight: 600,
             fontSize: 16,
+            transition: "all var(--transition-base)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--color-gold-bright)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--color-gold-primary)";
+            e.currentTarget.style.transform = "translateY(0)";
           }}
         >
           📸 Gerenciar Ensaios
@@ -106,16 +118,26 @@ export default async function ArquitetoHomePage() {
 
         <Link
           href="/admin/users"
+          className="card-premium"
           style={{
             display: "block",
             padding: "1.5rem",
-            background: "#111827",
+            background: "var(--color-gold-primary)",
             color: "#fff",
-            borderRadius: 12,
+            borderRadius: "var(--radius-md)",
             textDecoration: "none",
             textAlign: "center",
             fontWeight: 600,
             fontSize: 16,
+            transition: "all var(--transition-base)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--color-gold-bright)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--color-gold-primary)";
+            e.currentTarget.style.transform = "translateY(0)";
           }}
         >
           👥 Gerenciar Usuários
@@ -123,16 +145,26 @@ export default async function ArquitetoHomePage() {
 
         <Link
           href="/loja"
+          className="card-premium"
           style={{
             display: "block",
             padding: "1.5rem",
-            background: "#111827",
+            background: "var(--color-gold-primary)",
             color: "#fff",
-            borderRadius: 12,
+            borderRadius: "var(--radius-md)",
             textDecoration: "none",
             textAlign: "center",
             fontWeight: 600,
             fontSize: 16,
+            transition: "all var(--transition-base)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--color-gold-bright)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--color-gold-primary)";
+            e.currentTarget.style.transform = "translateY(0)";
           }}
         >
           🛍️ Loja TNA

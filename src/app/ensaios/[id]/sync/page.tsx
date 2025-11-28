@@ -17,15 +17,47 @@ export default async function SyncPage({ params }: PageProps) {
   }
 
   const userRole = (session.user as any)?.role as Role;
-  if (userRole !== Role.ARQUITETO && userRole !== Role.ADMIN) {
-    redirect("/");
-  }
-
+  const userId = (session.user as any)?.id;
   const { id } = await params;
+  
   const ensaio = await prisma.ensaio.findUnique({
     where: { id },
-    select: { id: true, syncFolderUrl: true, title: true },
+    select: { 
+      id: true, 
+      syncFolderUrl: true, 
+      title: true,
+      subjectCpf: true,
+      createdById: true,
+      status: true,
+      deletedAt: true,
+    },
   });
+  
+  if (!ensaio || ensaio.deletedAt) {
+    notFound();
+  }
+
+  // Verificar permissões de acesso
+  let hasAccess = false;
+
+  if (userRole === Role.ARQUITETO || userRole === Role.ADMIN || userRole === Role.SUPERADMIN) {
+    // ARQUITETO/ADMIN/SUPERADMIN podem ver todos os ensaios
+    hasAccess = true;
+  } else if (userRole === Role.MODELO || userRole === Role.CLIENTE) {
+    // MODELO/CLIENTE só podem ver ensaios próprios e publicados
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { cpf: true },
+    });
+    
+    if (user?.cpf && ensaio.subjectCpf === user.cpf && ensaio.status === "PUBLISHED") {
+      hasAccess = true;
+    }
+  }
+
+  if (!hasAccess) {
+    redirect("/");
+  }
 
   if (!ensaio) {
     notFound();

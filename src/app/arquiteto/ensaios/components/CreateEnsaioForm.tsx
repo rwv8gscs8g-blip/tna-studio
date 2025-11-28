@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import UserSearchField, { User } from "@/app/components/UserSearchField";
+import RichTextField from "@/components/rich-text/RichTextField";
 
 interface CreateEnsaioFormProps {
   userId: string;
@@ -17,9 +18,10 @@ interface Projeto {
 
 interface Produto {
   id: string;
+  slug: string | null;
   nome: string;
-  preco: number;
-  isTfp: boolean;
+  precoEuro: number | null;
+  categoria: string | null;
 }
 
 export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
@@ -54,8 +56,8 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
     async function loadData() {
       try {
         const [projetosRes, produtosRes] = await Promise.all([
-          fetch("/api/projetos?active=true"),
-          fetch("/api/produtos"),
+          fetch("/api/projetos?active=true", { credentials: "include" }),
+          fetch("/api/produtos", { credentials: "include" }),
         ]);
         
         if (projetosRes.ok) {
@@ -102,6 +104,7 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
 
       const res = await fetch("/api/ensaios/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -147,6 +150,7 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
 
       const res = await fetch("/api/ensaios/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -187,6 +191,7 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
 
         const res = await fetch("/api/ensaios/upload", {
           method: "POST",
+          credentials: "include",
           body: formData,
         });
 
@@ -250,6 +255,7 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           title: title.trim(),
           slug,
@@ -361,24 +367,13 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
 
         {/* Descrição */}
         <div>
-          <label style={{ display: "grid", gap: "0.5rem" }}>
-            <span style={{ fontSize: 14, fontWeight: 500 }}>Descrição</span>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descrição do ensaio (opcional)"
-              disabled={isSubmitting}
-              rows={3}
-              style={{
-                padding: "0.75rem",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                fontSize: 14,
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-            />
-          </label>
+          <RichTextField
+            label="Descrição"
+            value={description}
+            onChange={setDescription}
+            disabled={isSubmitting}
+            placeholder="Descrição do ensaio (opcional)..."
+          />
         </div>
 
         {/* Status */}
@@ -464,15 +459,17 @@ export default function CreateEnsaioForm({ userId }: CreateEnsaioFormProps) {
             >
               {produtos
                 .sort((a, b) => {
-                  // Ordenar: TFP primeiro, depois por nome
-                  if (a.isTfp && !b.isTfp) return -1;
-                  if (!a.isTfp && b.isTfp) return 1;
+                  // Ordenar: Cortesia primeiro, depois por nome
+                  const aIsCortesia = !a.precoEuro || a.categoria === "Cortesia";
+                  const bIsCortesia = !b.precoEuro || b.categoria === "Cortesia";
+                  if (aIsCortesia && !bIsCortesia) return -1;
+                  if (!aIsCortesia && bIsCortesia) return 1;
                   return a.nome.localeCompare(b.nome);
                 })
                 .map((produto) => {
-                  const priceLabel = produto.isTfp 
-                    ? "TFP / Permuta" 
-                    : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(produto.preco);
+                  const priceLabel = !produto.precoEuro || produto.categoria === "Cortesia"
+                    ? "Cortesia" 
+                    : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR" }).format(produto.precoEuro);
                   return (
                     <option key={produto.id} value={produto.id}>
                       {produto.nome} – {priceLabel}

@@ -19,10 +19,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const produto = await prisma.produto.findUnique({
-    where: { id },
+  const produto = await prisma.produto.findFirst({
+    where: { 
+      id,
+      deletedAt: null,
+      isActive: true,
+    },
     include: {
       photos: {
+        where: { deletedAt: null },
         orderBy: { sortOrder: "asc" },
       },
       _count: {

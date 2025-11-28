@@ -25,19 +25,30 @@ export async function GET(
 
     const produto = await prisma.produto.findUnique({
       where: { id },
-      select: { coverImageKey: true },
+      select: { 
+        coverImageKey: true,
+        photos: {
+          where: { deletedAt: null },
+          orderBy: { sortOrder: "asc" },
+          take: 1,
+          select: { storageKey: true },
+        },
+      },
     });
 
     if (!produto) {
       return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 });
     }
 
-    if (!produto.coverImageKey) {
+    // Usar coverImageKey se existir, senão usar primeira foto
+    const imageKey = produto.coverImageKey || produto.photos[0]?.storageKey;
+
+    if (!imageKey) {
       return NextResponse.json({ error: "Foto de capa não encontrada." }, { status: 404 });
     }
 
     try {
-      const signedUrl = await getSignedUrlForKey(produto.coverImageKey, { expiresInSeconds: 120 });
+      const signedUrl = await getSignedUrlForKey(imageKey, { expiresInSeconds: 120 });
 
       return NextResponse.json(
         { signedUrl },

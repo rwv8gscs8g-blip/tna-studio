@@ -65,7 +65,9 @@ export default function AdminReportsPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await fetch("/api/admin/reports");
+        const res = await fetch("/api/admin/reports", {
+          credentials: "include",
+        });
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
             router.push("/signin");

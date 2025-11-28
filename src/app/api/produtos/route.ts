@@ -26,10 +26,9 @@ export async function GET(req: NextRequest) {
 
     const where: any = {
       deletedAt: null, // Apenas produtos não deletados
+      isActive: true, // Apenas produtos ativos
     };
     if (categoria) where.categoria = categoria;
-    if (promocao) where.isPromocao = true;
-    if (tfp) where.isTfp = true;
 
     const produtos = await prisma.produto.findMany({
       where,
@@ -45,8 +44,8 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [
-        { isPromocao: "desc" },
-        { isTfp: "desc" },
+        { displayOrder: "asc" },
+        { categoria: "asc" },
         { nome: "asc" },
       ],
     });
@@ -61,6 +60,18 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/**
+ * Helper: Gera slug a partir do nome
+ */
+function generateSlug(nome: string): string {
+  return nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/[^a-z0-9]+/g, "-") // Substitui caracteres especiais por hífen
+    .replace(/^-+|-+$/g, ""); // Remove hífens no início e fim
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -73,34 +84,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Acesso negado. Apenas ARQUITETO pode criar produtos." }, { status: 403 });
     }
 
-    const { nome, descricao, preco, categoria, isPromocao, isTfp, coverImageKey } = await req.json();
+    const { nome, shortDescription, fullDescription, precoEuro, categoria, coverImageKey } = await req.json();
 
     if (!nome || !nome.trim()) {
       return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
     }
 
-    if (preco === undefined || preco === null || preco < 0) {
-      return NextResponse.json({ error: "Preço é obrigatório e deve ser >= 0" }, { status: 400 });
+    // Gerar slug a partir do nome
+    let slug = generateSlug(nome.trim());
+    
+    // Verificar se slug já existe e adicionar sufixo numérico se necessário
+    let finalSlug = slug;
+    let counter = 1;
+    while (await prisma.produto.findUnique({ where: { slug: finalSlug } })) {
+      finalSlug = `${slug}-${counter}`;
+      counter++;
     }
 
     const produto = await prisma.produto.create({
       data: {
+        slug: finalSlug,
         nome: nome.trim(),
-        descricao: descricao?.trim() || null,
-        preco: parseFloat(preco),
+        shortDescription: shortDescription?.trim() || null,
+        fullDescription: fullDescription?.trim() || null,
+        precoEuro: precoEuro !== undefined && precoEuro !== null ? parseFloat(precoEuro) : null,
         categoria: categoria?.trim() || null,
-        isPromocao: isPromocao === true,
-        isTfp: isTfp === true,
+        isActive: true,
         coverImageKey: coverImageKey?.trim() || null,
       },
       select: {
         id: true,
+        slug: true,
         nome: true,
-        descricao: true,
-        preco: true,
+        shortDescription: true,
+        fullDescription: true,
+        precoEuro: true,
         categoria: true,
-        isPromocao: true,
-        isTfp: true,
+        isActive: true,
         coverImageKey: true,
         createdAt: true,
       },

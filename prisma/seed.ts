@@ -1,16 +1,10 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaClient, Role } from "@prisma/client";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
-import forge from "node-forge";
-import { createHash } from "crypto";
 
 /**
- * Guard de Proteção de Ambiente - Inline para evitar problemas de importação
- * 
+ * Guard de Proteção de Ambiente
  * Previne execução de seed em produção.
- * Confia exclusivamente em NODE_ENV para determinar o ambiente.
  */
 function ensureNotProduction(action: string): void {
   if (process.env.NODE_ENV === "production") {
@@ -24,144 +18,96 @@ function ensureNotProduction(action: string): void {
 const prisma = new PrismaClient();
 
 /**
- * Seed inicial - Apenas o primeiro Arquiteto
- * 
- * Após zerar o banco, apenas o primeiro arquiteto será criado.
- * Ele criará todos os demais usuários via sistema.
+ * Helper: Gera slug a partir do texto
+ * Ex: 'Pacote 1 - Book Sensual' -> 'pacote-1-book-sensual'
  */
-
-const ARQUITETO_INICIAL = {
-  email: "arquiteto@tna.studio",
-  name: "Luís Maurício Junqueira Zanin",
-  password: "Arquiteto@2025!", // Senha explícita para desenvolvimento
-  role: Role.ARQUITETO,
-  phone: "+5561981321000",
-  cpf: "15030004866",
-  passport: null,
-  birthDate: new Date("1974-12-27"),
-  lgpdAccepted: true,
-  gdprAccepted: true,
-  termsAccepted: true,
-  acceptedAt: new Date(),
-};
+function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/[^a-z0-9]+/g, "-") // Substitui caracteres especiais por hífen
+    .replace(/^-+|-+$/g, ""); // Remove hífens no início e fim
+}
 
 /**
- * Lê e valida certificado A1 do arquivo
+ * Valida se o hash da senha está correto
  */
-async function readAndValidateCertificate(
-  certPath: string,
-  certPassword: string
-): Promise<{
-  serial: string;
-  thumbprint: string;
-  certificateHash: string;
-  certificateEncrypted: string;
-  issuer: string;
-  validFrom: Date;
-  validUntil: Date;
-}> {
-  if (!existsSync(certPath)) {
-    throw new Error(`Certificado não encontrado: ${certPath}`);
-  }
-
-  const pfxData = readFileSync(certPath);
-  const pfxString = Buffer.from(pfxData).toString("binary");
-  const p12Asn1 = forge.asn1.fromDer(pfxString);
-  const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certPassword);
-
-  const bags = p12.getBags({ bagType: forge.pki.oids.certBag });
-  const certBag = bags[forge.pki.oids.certBag];
-
-  if (!certBag || certBag.length === 0) {
-    throw new Error("Nenhum certificado encontrado no arquivo PKCS#12");
-  }
-
-  const cert = certBag[0].cert as forge.pki.Certificate;
-  const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes();
-  const thumbprint = createHash("sha1").update(Buffer.from(certDer, "binary")).digest("hex");
-  const certificateHash = createHash("sha256").update(pfxData).digest("hex");
-  
-  // Em produção real, o certificado seria criptografado
-  // Por simplicidade, armazenamos como base64
-  const certificateEncrypted = pfxData.toString("base64");
-
-  const issuer = cert.issuer.getField("CN")?.value || cert.issuer.getField("O")?.value || "Unknown";
-
-  return {
-    serial: cert.serialNumber,
-    thumbprint,
-    certificateHash,
-    certificateEncrypted,
-    issuer,
-    validFrom: cert.validity.notBefore,
-    validUntil: cert.validity.notAfter,
-  };
+async function validatePasswordHash(password: string, hash: string): Promise<boolean> {
+  return await bcrypt.compare(password, hash);
 }
 
 async function main() {
   // Proteção crítica: seed NUNCA deve rodar em produção
   ensureNotProduction("Database Seed");
   
-  console.log("🌱 Iniciando seed de usuários...");
-  console.log("📋 Criando usuários de teste\n");
+  console.log("🌱 Iniciando seed do banco de dados...");
+  console.log("📋 Criando usuários e produtos obrigatórios\n");
 
   // ============================================
-  // ARQUITETO - Administrador principal
+  // 1. USUÁRIOS OBRIGATÓRIOS
   // ============================================
-  const birth = new Date(ARQUITETO_INICIAL.birthDate);
+
+  // ARQUITETO
+  const arquitetoEmail = "arquiteto@tna.studio";
+  const arquitetoPassword = "Arquiteto@2025!";
+  const arquitetoPasswordHash = await bcrypt.hash(arquitetoPassword, 12);
+  const arquitetoBirthDate = new Date("1974-12-27");
   const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+  let age = today.getFullYear() - arquitetoBirthDate.getFullYear();
+  const monthDiff = today.getMonth() - arquitetoBirthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < arquitetoBirthDate.getDate())) {
     age--;
   }
   
   if (age < 18) {
-    console.error(`❌ ${ARQUITETO_INICIAL.email}: Idade ${age} anos é menor que 18 anos!`);
+    console.error(`❌ ${arquitetoEmail}: Idade ${age} anos é menor que 18 anos!`);
     process.exit(1);
   }
 
-  const arquitetoPasswordHash = await bcrypt.hash(ARQUITETO_INICIAL.password, 12);
   const arquiteto = await prisma.user.upsert({
-    where: { email: ARQUITETO_INICIAL.email },
+    where: { email: arquitetoEmail },
     update: {
-      name: ARQUITETO_INICIAL.name,
+      name: "Luís Maurício Junqueira Zanin",
       role: Role.ARQUITETO,
       passwordHash: arquitetoPasswordHash,
-      phone: ARQUITETO_INICIAL.phone,
-      cpf: ARQUITETO_INICIAL.cpf,
-      passport: ARQUITETO_INICIAL.passport,
-      birthDate: ARQUITETO_INICIAL.birthDate,
-      lgpdAccepted: ARQUITETO_INICIAL.lgpdAccepted,
-      gdprAccepted: ARQUITETO_INICIAL.gdprAccepted,
-      termsAccepted: ARQUITETO_INICIAL.termsAccepted,
-      acceptedAt: ARQUITETO_INICIAL.acceptedAt,
+      phone: "+5561981321000",
+      cpf: "15030004866",
+      passport: null,
+      birthDate: arquitetoBirthDate,
+      lgpdAccepted: true,
+      gdprAccepted: true,
+      termsAccepted: true,
+      acceptedAt: new Date(),
     },
     create: {
-      email: ARQUITETO_INICIAL.email,
-      name: ARQUITETO_INICIAL.name,
+      email: arquitetoEmail,
+      name: "Luís Maurício Junqueira Zanin",
       role: Role.ARQUITETO,
       passwordHash: arquitetoPasswordHash,
-      phone: ARQUITETO_INICIAL.phone,
-      cpf: ARQUITETO_INICIAL.cpf,
-      passport: ARQUITETO_INICIAL.passport,
-      birthDate: ARQUITETO_INICIAL.birthDate,
-      lgpdAccepted: ARQUITETO_INICIAL.lgpdAccepted,
-      gdprAccepted: ARQUITETO_INICIAL.gdprAccepted,
-      termsAccepted: ARQUITETO_INICIAL.termsAccepted,
-      acceptedAt: ARQUITETO_INICIAL.acceptedAt,
+      phone: "+5561981321000",
+      cpf: "15030004866",
+      passport: null,
+      birthDate: arquitetoBirthDate,
+      lgpdAccepted: true,
+      gdprAccepted: true,
+      termsAccepted: true,
+      acceptedAt: new Date(),
     },
   });
 
-  console.log(
-    `✅ ${arquiteto.email} (${arquiteto.role}) - CPF: ${arquiteto.cpf}, Telefone: ${arquiteto.phone}, Idade: ${age} anos.`
-  );
-  console.log(`   Email: ${arquiteto.email}`);
-  console.log(`   Senha: ${ARQUITETO_INICIAL.password}`);
+  // Validar hash do ARQUITETO
+  const arquitetoHashValid = await validatePasswordHash(arquitetoPassword, arquiteto.passwordHash);
+  if (!arquitetoHashValid) {
+    console.error(`❌ Hash da senha do ARQUITETO está inválido!`);
+    process.exit(1);
+  }
 
-  // ============================================
-  // ADMIN - Somente leitura
-  // ============================================
+  console.log(`✅ ARQUITETO criado: ${arquiteto.email}`);
+  console.log(`   Senha: ${arquitetoPassword} (hash validado: ✓)`);
+  console.log(`   ID: ${arquiteto.id}`);
+
+  // ADMIN
   const adminEmail = "admin@tna.studio";
   const adminPassword = "Admin@2025!";
   const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
@@ -185,13 +131,18 @@ async function main() {
       birthDate: new Date("1985-01-15"),
     },
   });
-  console.log(`\n✅ ${admin.email} (${admin.role}) - Somente leitura`);
-  console.log(`   Email: ${admin.email}`);
-  console.log(`   Senha: ${adminPassword}`);
 
-  // ============================================
-  // MODELO - Somente leitura (exceto auto-cadastro)
-  // ============================================
+  const adminHashValid = await validatePasswordHash(adminPassword, admin.passwordHash);
+  if (!adminHashValid) {
+    console.error(`❌ Hash da senha do ADMIN está inválido!`);
+    process.exit(1);
+  }
+
+  console.log(`✅ ADMIN criado: ${admin.email}`);
+  console.log(`   Senha: ${adminPassword} (hash validado: ✓)`);
+  console.log(`   ID: ${admin.id}`);
+
+  // MODELO
   const modeloEmail = "modelo@tna.studio";
   const modeloPassword = "Modelo@2025!";
   const modeloPasswordHash = await bcrypt.hash(modeloPassword, 12);
@@ -215,13 +166,12 @@ async function main() {
       birthDate: new Date("1990-05-20"),
     },
   });
-  console.log(`\n✅ ${modelo.email} (${modelo.role}) - Somente leitura`);
-  console.log(`   Email: ${modelo.email}`);
-  console.log(`   Senha: ${modeloPassword}`);
 
-  // ============================================
-  // CLIENTE - Somente leitura
-  // ============================================
+  console.log(`✅ MODELO criado: ${modelo.email}`);
+  console.log(`   Senha: ${modeloPassword}`);
+  console.log(`   ID: ${modelo.id}`);
+
+  // CLIENTE
   const clienteEmail = "cliente@tna.studio";
   const clientePassword = "Cliente@2025!";
   const clientePasswordHash = await bcrypt.hash(clientePassword, 12);
@@ -245,212 +195,253 @@ async function main() {
       birthDate: new Date("1988-08-10"),
     },
   });
-  console.log(`\n✅ ${cliente.email} (${cliente.role}) - Somente leitura`);
-  console.log(`   Email: ${cliente.email}`);
+
+  console.log(`✅ CLIENTE criado: ${cliente.email}`);
   console.log(`   Senha: ${clientePassword}`);
+  console.log(`   ID: ${cliente.id}`);
 
   // ============================================
-  // SUPERADMIN - Reservado para gestão de certificado (não usado ainda)
+  // 2. APP CONFIG (Singleton)
   // ============================================
-  const superadminEmail = "superadmin@tna.studio";
-  const superadminPassword = "SuperAdmin@2025!";
-  const superadminPasswordHash = await bcrypt.hash(superadminPassword, 12);
-  const superadmin = await prisma.user.upsert({
-    where: { email: superadminEmail },
+  await prisma.appConfig.upsert({
+    where: { id: "singleton" },
     update: {
-      name: "Super Admin",
-      role: Role.SUPERADMIN,
-      passwordHash: superadminPasswordHash,
-      cpf: "55566677788",
-      phone: "+5561999554433",
-      birthDate: new Date("1980-03-25"),
+      productionWriteEnabled: true,
+      preStartValidationEnabled: true,
+      updatedBy: arquiteto.id,
     },
     create: {
-      email: superadminEmail,
-      name: "Super Admin",
-      role: Role.SUPERADMIN,
-      passwordHash: superadminPasswordHash,
-      cpf: "55566677788",
-      phone: "+5561999554433",
-      birthDate: new Date("1980-03-25"),
+      id: "singleton",
+      productionWriteEnabled: true,
+      preStartValidationEnabled: true,
+      updatedBy: arquiteto.id,
     },
   });
-  console.log(`\n✅ ${superadmin.email} (${superadmin.role}) - Reservado para gestão de certificado`);
-  console.log(`   Email: ${superadmin.email}`);
-  console.log(`   Senha: ${superadminPassword}`);
-  console.log(`   NOTA: Não será usado na interface ainda`);
+  console.log(`\n✅ AppConfig criado/atualizado (singleton)`);
 
-  // Tentar ler e associar certificado A1 (se configurado)
-  // PROTEGIDO: não deve quebrar o seed se a tabela não existir
-  const certPath = process.env.CERT_A1_FILE_PATH || "./secrets/certs/assinatura_a1.pfx";
-  const certPassword = process.env.CERT_A1_PASSWORD;
-
-  if (certPassword && existsSync(certPath)) {
-    try {
-      console.log("\n📜 Lendo certificado digital A1...");
-      const certData = await readAndValidateCertificate(certPath, certPassword);
-
-      // Criar ou atualizar registro de certificado (protegido contra tabela inexistente)
-      try {
-        await prisma.adminCertificate.upsert({
-        where: { userId: arquiteto.id },
-        update: {
-          certificateHash: certData.certificateHash,
-          certificateEncrypted: certData.certificateEncrypted,
-          serialNumber: certData.serial,
-          issuer: certData.issuer,
-          validFrom: certData.validFrom,
-          validUntil: certData.validUntil,
-          isActive: true,
-          lastUsedAt: null,
-          createdBy: arquiteto.id,
-        },
-        create: {
-          userId: arquiteto.id,
-          certificateHash: certData.certificateHash,
-          certificateEncrypted: certData.certificateEncrypted,
-          serialNumber: certData.serial,
-          issuer: certData.issuer,
-          validFrom: certData.validFrom,
-          validUntil: certData.validUntil,
-          isActive: true,
-          lastUsedAt: null,
-          createdBy: arquiteto.id,
-        },
-      });
-
-        console.log(`✅ Certificado A1 associado ao Arquiteto`);
-        console.log(`   Serial: ${certData.serial}`);
-        console.log(`   Thumbprint: ${certData.thumbprint}`);
-        console.log(`   Válido até: ${certData.validUntil.toISOString()}`);
-      } catch (error: any) {
-        // Erro P2021: tabela não existe - não é crítico para o seed
-        if (error?.code === "P2021" || error?.code === "P1001" || error?.message?.includes("does not exist")) {
-          console.warn(`⚠️  Tabela AdminCertificate não existe ainda (${error.code}). Certificado pode ser associado após aplicar migrations.`);
-        } else {
-          console.warn(`⚠️  Erro ao associar certificado A1: ${error.message}`);
-          console.warn(`   O certificado pode ser associado posteriormente via interface do SUPER_ADMIN`);
-        }
-      }
-    } catch (error: any) {
-      console.warn(`⚠️  Erro ao ler/validar certificado A1: ${error.message}`);
-      console.warn(`   O certificado pode ser associado posteriormente via interface do SUPER_ADMIN`);
-    }
-  } else {
-    console.warn(`\n⚠️  Certificado A1 não encontrado ou não configurado.`);
-    console.warn(`   Configure CERT_A1_FILE_PATH e CERT_A1_PASSWORD no .env.local`);
-    console.warn(`   O certificado pode ser associado posteriormente via interface do SUPER_ADMIN`);
-  }
-
-  // Criar 10 produtos fotográficos
-  console.log("\n📦 Criando produtos fotográficos...");
-  const produtos = [
+  // ============================================
+  // 3. PRODUTOS OFICIAIS (11 itens)
+  // ============================================
+  console.log("\n📦 Criando/atualizando produtos fotográficos (11 itens)...");
+  
+  const produtosSeed: Array<{
+    nome: string;
+    categoria: string;
+    precoEuro: number;
+    shortDescription: string;
+    fullDescription: string;
+    isActive: boolean;
+    displayOrder?: number;
+  }> = [
     {
-      nome: "Pacote 1 - Ensaio Básico",
-      descricao: "Ensaio fotográfico básico com 10 fotos editadas em alta resolução. Ideal para iniciantes ou ensaios casuais.",
-      preco: 500.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 1 - Book Sensual",
+      categoria: "Book",
+      precoEuro: 700.0,
+      shortDescription: "Ensaio SENSUAL & NU ARTÍSTICO em estúdio/hotel, até 8h, com 200 fotos.",
+      fullDescription: "Adquira um ensaio fotográfico com a temática SENSUAL & NU ARTÍSTICO em estúdio e/ou em um hotel, com duração de até 8 horas. Inclui: até 200 fotos eletrônicas (100 tratadas + 100 em preto e branco); maquiagem profissional; quadro foto tela 90x60 cm; pen drive 16 GB criptografado; link para download disponível por 12 meses.",
+      isActive: true,
     },
     {
-      nome: "Pacote 2 - Ensaio Completo",
-      descricao: "Ensaio fotográfico completo com 20 fotos editadas em alta resolução. Inclui diferentes looks e cenários.",
-      preco: 900.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 2 - Book Fashion",
+      categoria: "Book",
+      precoEuro: 700.0,
+      shortDescription: "Ensaio FASHION em estúdio/hotel, até 8h, com 200 fotos.",
+      fullDescription: "Adquira um ensaio fotográfico com a temática FASHION em estúdio e/ou em um hotel, com duração de até 8 horas. Inclui: até 200 fotos eletrônicas (100 tratadas + 100 em preto e branco); maquiagem profissional; quadro foto tela 90x60 cm; pen drive 16 GB criptografado; link para download disponível por 12 meses.",
+      isActive: true,
     },
     {
-      nome: "Pacote 3 - Ensaio Premium",
-      descricao: "Ensaio fotográfico premium com 30 fotos editadas em alta resolução. Inclui book profissional completo.",
-      preco: 1500.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 3 - Diária Fotográfica",
+      categoria: "Diária",
+      precoEuro: 1000.0,
+      shortDescription: "Diária SENSUAL & NU ARTÍSTICO para até 5 pessoas.",
+      fullDescription: "Para até 5 pessoas, com temática SENSUAL & NU ARTÍSTICO e duração de até 8 horas. Inclui: até 500 fotos eletrônicas (250 tratadas + 250 em preto e branco); maquiagem para até 5 pessoas; quadro foto tela 90x60 cm; pen drive 16 GB criptografado; link para download disponível por 12 meses.",
+      isActive: true,
     },
     {
-      nome: "Pacote 4 - Ensaio Fashion",
-      descricao: "Ensaio fashion com 25 fotos editadas. Foco em moda e editorial. Ideal para portfólio profissional.",
-      preco: 1800.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 4 - Portfólio Eletrônico",
+      categoria: "Portfólio",
+      precoEuro: 100.0,
+      shortDescription: "Estúdio 2h + 10 fotos tratadas.",
+      fullDescription: "Sessão de estúdio de até 2 horas, ideal para atualização de portfólio. Inclui: 10 fotos digitais tratadas no Photoshop. Maquiagem não inclusa.",
+      isActive: true,
     },
     {
-      nome: "Pacote 5 - Ensaio Boudoir",
-      descricao: "Ensaio boudoir intimista com 20 fotos editadas. Ambiente reservado e profissional.",
-      preco: 2000.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 5 - Ensaio Estúdio + Quadro",
+      categoria: "Ensaio",
+      precoEuro: 350.0,
+      shortDescription: "Estúdio 4h + 100 fotos tratadas + quadro 90x60.",
+      fullDescription: "Sessão de estúdio de até 4 horas. Inclui: 100 fotos eletrônicas tratadas; quadro foto tela 90x60 cm. Maquiagem não inclusa.",
+      isActive: true,
     },
     {
-      nome: "Pacote 6 - Ensaio Externo",
-      descricao: "Ensaio em locação externa com 25 fotos editadas. Natureza, urbano ou praia.",
-      preco: 2200.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 6 - Ensaio Externo + Quadro",
+      categoria: "Ensaio",
+      precoEuro: 350.0,
+      shortDescription: "Externa no DF até 4h + 100 fotos tratadas + quadro 90x60.",
+      fullDescription: "Sessão de até 4 horas em locação externa no Distrito Federal. Inclui: 100 fotos eletrônicas tratadas; quadro foto tela 90x60 cm. Maquiagem não inclusa.",
+      isActive: true,
     },
     {
-      nome: "Pacote 7 - Ensaio Corporativo",
-      descricao: "Ensaio corporativo profissional com 15 fotos editadas. Ideal para LinkedIn e materiais profissionais.",
-      preco: 1200.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 7 - Mensalidade Fotográfica",
+      categoria: "Mensalidade",
+      precoEuro: 75.0,
+      shortDescription: "Plano mensal: 1 ensaio/mês + 30 fotos. Contrato 12 meses.",
+      fullDescription: "Mensalidade para atualização de portfólio (pessoa física ou jurídica). Contrato mínimo de 12 meses. Inclui: 1 ensaio por mês em estúdio (até 1 hora) com 30 fotos tratadas. Foto adicional: € 1. Maquiagem não inclusa. Limitado a 5 vagas simultâneas por ano.",
+      isActive: true,
     },
     {
-      nome: "Pacote 8 - Ensaio Artístico",
-      descricao: "Ensaio artístico conceitual com 30 fotos editadas. Foco em criatividade e expressão artística.",
-      preco: 2500.0,
-      categoria: "Pacote",
-      isPromocao: false,
-      isTfp: false,
+      nome: "Pacote 8 - Receber uma Cortesia",
+      categoria: "Cortesia",
+      precoEuro: 0.0,
+      shortDescription: "Café + 1 foto tratada gratuitamente.",
+      fullDescription: "Venha tomar um café e ganhe uma foto digital tratada. Sessão de 30 a 120 minutos. A melhor foto é sua de graça. Fotos adicionais podem ser adquiridas por € 10 cada. Contrato: Model Release Padrão.",
+      isActive: true,
     },
     {
-      nome: "Pacote 9 - Ensaio VIP",
-      descricao: "Ensaio VIP exclusivo com 40 fotos editadas. Inclui múltiplos looks, locações e tratamento premium.",
-      preco: 3500.0,
-      categoria: "Pacote",
-      isPromocao: true,
-      isTfp: false,
+      nome: "Pacote 9 - Marcar uma Entrevista",
+      categoria: "Entrevista",
+      precoEuro: 0.0,
+      shortDescription: "Entrevista presencial ou virtual para conhecer opções.",
+      fullDescription: "Encontro virtual ou presencial para apresentação das opções fotográficas, formatos de ensaio e materiais impressos. Atendimento mediante agendamento conforme disponibilidade.",
+      isActive: true,
     },
     {
-      nome: "Pacote 10 - TFP / Permuta",
-      descricao: "Ensaio TFP (Time For Print) / Permuta. Você recebe as fotos editadas em troca da autorização de uso de imagem para fins comerciais e artísticos. Ideal para modelos que querem expandir seu portfólio.",
-      preco: 0.0,
+      nome: "Pacote 10 - Permuta (TFP)",
       categoria: "TFP",
-      isPromocao: true,
-      isTfp: true,
+      precoEuro: 0.0,
+      shortDescription: "Permuta: participação em atividade + 30 fotos tratadas.",
+      fullDescription: "Trade For Print (TFP). Participação em atividade (ensaio, aula, workshop ou projeto autoral) com contrapartida de 30 fotos digitais tratadas. Contrato: Model Release Padrão. Multa por quebra de contrato: 10 vezes o valor do Pacote 2.",
+      isActive: true,
+    },
+    {
+      nome: "Pacote 11 - Atuar como Modelo Vivo",
+      categoria: "Modelo Vivo",
+      precoEuro: 0.0,
+      shortDescription: "Modelo vivo em estudos artísticos + ensaio adicional.",
+      fullDescription: "Participação como modelo vivo em estudos técnicos de nu artístico. Contrapartida: ensaio adicional (tema livre) realizado pelo fotógrafo + 30 fotos do ensaio original. Indicado para quem aprecia o nu artístico como arte.",
+      isActive: true,
     },
   ];
 
-  for (const produtoData of produtos) {
-    const produto = await prisma.produto.upsert({
-      where: { nome: produtoData.nome },
-      update: produtoData,
-      create: produtoData,
+  let produtosCriados = 0;
+  let produtosAtualizados = 0;
+
+  produtosSeed.forEach((produtoData, index) => {
+    produtoData.displayOrder = index + 1;
+  });
+
+  for (const produtoData of produtosSeed) {
+    const slug = generateSlug(produtoData.nome);
+    
+    // Verificar se produto já existe
+    const produtoExistente = await prisma.produto.findUnique({
+      where: { slug },
     });
-    console.log(`   ✓ ${produto.nome}`);
+
+    const data = {
+      nome: produtoData.nome,
+      shortDescription: produtoData.shortDescription,
+      fullDescription: produtoData.fullDescription,
+      precoEuro: produtoData.precoEuro,
+      categoria: produtoData.categoria,
+      isActive: produtoData.isActive,
+      displayOrder: produtoData.displayOrder || 0,
+    };
+
+    try {
+      const produto = await prisma.produto.upsert({
+        where: { slug },
+        update: data,
+        create: {
+          ...data,
+          slug,
+        },
+      });
+
+      if (produtoExistente) {
+        produtosAtualizados++;
+        console.log(`   ↻ ${produto.nome} (slug: ${produto.slug}) - ATUALIZADO`);
+      } else {
+        produtosCriados++;
+        console.log(`   ✓ ${produto.nome} (slug: ${produto.slug}) - CRIADO`);
+      }
+    } catch (error: any) {
+      console.error(`   ❌ Erro ao criar/atualizar produto "${produtoData.nome}": ${error.message}`);
+      throw error;
+    }
   }
 
-  console.log("\n✅ Seed de usuários e produtos finalizado!");
-  console.log(`\n📋 Resumo de usuários criados:`);
-  console.log(`   ARQUITETO: ${arquiteto.email} / ${ARQUITETO_INICIAL.password}`);
-  console.log(`   ADMIN: ${admin.email} / ${adminPassword}`);
-  console.log(`   MODELO: ${modelo.email} / ${modeloPassword}`);
-  console.log(`   CLIENTE: ${cliente.email} / ${clientePassword}`);
-  console.log(`   SUPERADMIN: ${superadmin.email} / ${superadminPassword} (reservado)`);
-  console.log(`\n📦 Produtos criados: 10 pacotes fotográficos`);
-  console.log(`\n📝 Nota: Todos os papéis exceto ARQUITETO são somente leitura.`);
-  console.log(`   Somente ARQUITETO pode criar, alterar ou excluir dados no sistema.`);
+  // ============================================
+  // 4. VALIDAÇÃO DE SUCESSO
+  // ============================================
+  console.log("\n🔍 Validando integridade do banco...");
+
+  const userCount = await prisma.user.count({ where: { deletedAt: null } });
+  const produtoCount = await prisma.produto.count({ where: { deletedAt: null, isActive: true } });
+  const appConfigExists = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+
+  if (userCount < 4) {
+    console.error(`❌ VALIDAÇÃO FALHOU: Esperado pelo menos 4 usuários, encontrado ${userCount}`);
+    process.exit(1);
+  }
+
+  if (produtoCount < 11) {
+    console.error(`❌ VALIDAÇÃO FALHOU: Esperado pelo menos 11 produtos, encontrado ${produtoCount}`);
+    process.exit(1);
+  }
+
+  if (!appConfigExists) {
+    console.error(`❌ VALIDAÇÃO FALHOU: AppConfig singleton não encontrado`);
+    process.exit(1);
+  }
+
+  // Validar login do ARQUITETO
+  const arquitetoFromDb = await prisma.user.findUnique({
+    where: { email: arquitetoEmail },
+    select: { passwordHash: true },
+  });
+
+  if (!arquitetoFromDb) {
+    console.error(`❌ VALIDAÇÃO FALHOU: ARQUITETO não encontrado no banco`);
+    process.exit(1);
+  }
+
+  const loginValid = await validatePasswordHash(arquitetoPassword, arquitetoFromDb.passwordHash);
+  if (!loginValid) {
+    console.error(`❌ VALIDAÇÃO FALHOU: Hash da senha do ARQUITETO não corresponde`);
+    process.exit(1);
+  }
+
+  console.log(`✅ Validação concluída:`);
+  console.log(`   Usuários: ${userCount}`);
+  console.log(`   Produtos: ${produtoCount} (11 oficiais)`);
+  console.log(`   AppConfig: OK`);
+  console.log(`   Login Arquiteto: OK (Validado via script)`);
+
+  // ============================================
+  // 5. RESUMO FINAL
+  // ============================================
+  console.log("\n" + "=".repeat(60));
+  console.log("✅ SEED CONCLUÍDO COM SUCESSO");
+  console.log("=".repeat(60));
+  console.log(`\n📋 Usuários criados/atualizados: ${userCount}`);
+  console.log(`   - ARQUITETO: ${arquitetoEmail} / ${arquitetoPassword}`);
+  console.log(`   - ADMIN: ${adminEmail} / ${adminPassword}`);
+  console.log(`   - MODELO: ${modeloEmail} / ${modeloPassword}`);
+  console.log(`   - CLIENTE: ${clienteEmail} / ${clientePassword}`);
+  console.log(`\n📦 Produtos:`);
+  console.log(`   - Criados: ${produtosCriados}`);
+  console.log(`   - Atualizados: ${produtosAtualizados}`);
+  console.log(`   - Total ativo: ${produtoCount} (11 oficiais)`);
+  console.log(`\n🔐 Login Arquiteto: OK (Validado via script)`);
+  console.log(`\n✅ Sistema pronto para uso.`);
+  console.log("=".repeat(60) + "\n");
 }
 
 main()
   .catch((error) => {
-    console.error("❌ Erro no seed:", error);
+    console.error("\n❌ ERRO CRÍTICO NO SEED:", error);
+    console.error(error.stack);
     process.exit(1);
   })
   .finally(async () => {
